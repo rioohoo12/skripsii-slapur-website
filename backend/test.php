@@ -1,0 +1,1 @@
+<?php try { $db = new PDO('pgsql:host=aws-0-ap-northeast-1.pooler.supabase.com;port=6543;dbname=postgres', 'postgres.lzovxwawdfmyrevxgxmq', 'riosaputra12'); echo 'Connected!'; } catch (Exception $e) { echo $e->getMessage(); }
