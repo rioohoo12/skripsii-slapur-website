@@ -10,10 +10,25 @@
       </span>
     </div>
 
+    <!-- Status Kamar Murid -->
+    <div v-if="studentRoomStatus" class="status-alert success" :class="themeClass">
+      <div class="status-icon">✅</div>
+      <div class="status-text">
+        <strong>Anda telah memilih kamar:</strong><br/>
+        Kamar No. {{ studentRoomStatus.nomor_kamar }}
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="isLoading" class="loading-state">
+      <div class="spinner"></div>
+      <p>Memuat data kamar...</p>
+    </div>
+
     <!-- Daftar asrama -->
-    <div class="asrama-list">
+    <div v-else-if="!studentRoomStatus" class="asrama-list">
       <article
-        v-for="(asrama, idx) in daftarAsrama"
+        v-for="(asrama, idx) in asramaGroups"
         :key="asrama.id"
         class="asrama-card"
         :class="themeClass"
@@ -25,19 +40,27 @@
           </div>
           <div class="asrama-meta">
             <h2 class="asrama-nama">{{ asrama.nama }}</h2>
-            <span class="asrama-count">{{ asrama.nomorKamar.length }} kamar tersedia</span>
+            <span class="asrama-count">{{ asrama.kamarList.filter(k => k.tersedia).length }} kamar tersedia</span>
           </div>
         </div>
         <div class="kamar-grid">
           <button
-            v-for="no in asrama.nomorKamar"
-            :key="no"
+            v-for="kamar in asrama.kamarList"
+            :key="kamar.id"
             type="button"
             class="kamar-btn"
-            :class="[themeClass, { selected: selectedKamar === asrama.id + '-' + no }]"
-            @click="toggleKamar(asrama.id, no)"
+            :class="[themeClass, { 
+                selected: selectedKamar && selectedKamar.id === kamar.id,
+                full: !kamar.tersedia
+            }]"
+            :disabled="!kamar.tersedia"
+            @click="toggleKamar(kamar)"
           >
-            <span class="kamar-num">{{ no }}</span>
+            <div class="kamar-content">
+                <span class="kamar-num">{{ kamar.nomor_kamar }}</span>
+                <span class="kamar-occupancy" v-if="kamar.tersedia">{{ kamar.current_occupancy }}/{{ kamar.kapasitas }}</span>
+                <span class="kamar-occupancy full-text" v-else>Penuh</span>
+            </div>
           </button>
         </div>
       </article>
@@ -45,60 +68,136 @@
 
     <!-- Bar pilihan (sticky bottom) -->
     <Transition name="slide-up">
-      <div v-if="selectedKamarDisplay" class="selected-bar" :class="themeClass">
+      <div v-if="selectedKamar && !studentRoomStatus" class="selected-bar" :class="themeClass">
         <span class="selected-label">Kamar dipilih</span>
-        <span class="selected-value">{{ selectedKamarDisplay }}</span>
-        <button type="button" class="selected-clear" @click="selectedKamar = ''" aria-label="Batal pilih">
+        <span class="selected-value">Kamar {{ selectedKamar.nomor_kamar }}</span>
+        <button type="button" class="selected-action-btn" @click="showConfirmModal = true">
+          Pilih Sekarang
+        </button>
+        <button type="button" class="selected-clear" @click="selectedKamar = null" aria-label="Batal pilih">
           ✕
         </button>
       </div>
     </Transition>
+
+    <!-- Modal Konfirmasi -->
+    <div v-if="showConfirmModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3>Konfirmasi Pilihan Kamar</h3>
+            <p>Anda akan memilih <strong>Kamar {{ selectedKamar?.nomor_kamar }}</strong>.</p>
+            <p class="warning-text">Pilihan ini tidak dapat diubah setelah dikonfirmasi.</p>
+            
+            <div class="modal-actions">
+                <button class="btn-cancel" @click="showConfirmModal = false" :disabled="isSubmitting">Batal</button>
+                <button class="btn-confirm" @click="confirmPilihKamar" :disabled="isSubmitting">
+                    {{ isSubmitting ? 'Menyimpan...' : 'Ya, Pilih Kamar' }}
+                </button>
+            </div>
+        </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
+import { pendaftaranApi } from '@/api/pendaftaran.js';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 
-const selectedKamar = ref('');
+const daftarKamar = ref([]);
+const selectedKamar = ref(null);
+const studentRoomStatus = ref(null);
+const isLoading = ref(true);
 
-const selectedKamarDisplay = computed(() => {
-  if (!selectedKamar.value) return '';
-  const [id, no] = selectedKamar.value.split('-');
-  const list = props.jenisKelamin === 'perempuan' ? asramaPerempuan : asramaLakiLaki;
-  const asrama = list.find((a) => a.id === id);
-  const nama = asrama ? asrama.nama : id;
-  return `${nama}, No. ${no}`;
+const showConfirmModal = ref(false);
+const isSubmitting = ref(false);
+
+const fetchRooms = async () => {
+    isLoading.value = true;
+    try {
+        const [statusRes, kamarRes] = await Promise.all([
+            pendaftaranApi.getStatus(),
+            pendaftaranApi.getKamar()
+        ]);
+        
+        if (statusRes.room && statusRes.room.kamar_id) {
+            studentRoomStatus.value = statusRes.room;
+        }
+
+        if (kamarRes.kamar) {
+            daftarKamar.value = kamarRes.kamar;
+        }
+    } catch (e) {
+        alert(e.message || 'Gagal mengambil data kamar');
+    } finally {
+        isLoading.value = false;
+    }
+}
+
+onMounted(() => {
+    fetchRooms();
 });
 
-function toggleKamar(asramaId, no) {
-  const key = asramaId + '-' + no;
-  selectedKamar.value = selectedKamar.value === key ? '' : key;
+const asramaGroups = computed(() => {
+   const groups = {};
+   daftarKamar.value.forEach(kamar => {
+       // Check if nomor_kamar exists and has at least 1 character
+       if (!kamar.nomor_kamar || kamar.nomor_kamar.length === 0) return;
+
+       const prefix = kamar.nomor_kamar.charAt(0).toUpperCase();
+       if (!groups[prefix]) {
+           let nama = 'Asrama ' + prefix;
+           let icon = '🏢';
+           if (props.jenisKelamin === 'perempuan') {
+               if (prefix === 'A') { nama = 'Asrama Krisan'; icon = '🌸'; }
+               else if (prefix === 'B') { nama = 'Asrama Melati'; icon = '🌼'; }
+               else if (prefix === 'C') { nama = 'Asrama Mawar'; icon = '🌹'; }
+           } else {
+               if (prefix === 'A') { nama = 'Asrama Anex'; icon = '🏢'; }
+               else if (prefix === 'B') { nama = 'Asrama Cendrawasih'; icon = '🐦'; }
+               else if (prefix === 'C') { nama = 'Asrama Hawk'; icon = '🦅'; }
+           }
+           groups[prefix] = {
+               id: prefix,
+               nama,
+               icon,
+               kamarList: []
+           };
+       }
+       groups[prefix].kamarList.push(kamar);
+   });
+   return Object.values(groups);
+});
+
+function toggleKamar(kamar) {
+  if (!kamar.tersedia) return;
+  if (selectedKamar.value && selectedKamar.value.id === kamar.id) {
+      selectedKamar.value = null;
+  } else {
+      selectedKamar.value = kamar;
+  }
 }
 
-function range(start, end) {
-  const arr = [];
-  for (let i = start; i <= end; i++) arr.push(i);
-  return arr;
+async function confirmPilihKamar() {
+    if (!selectedKamar.value) return;
+    
+    isSubmitting.value = true;
+    try {
+        const res = await pendaftaranApi.pilihKamar({ kamar_id: selectedKamar.value.id });
+        alert(res.message || 'Kamar berhasil dipilih');
+        showConfirmModal.value = false;
+        studentRoomStatus.value = res.room;
+        // Refresh kamar data to update availability
+        const kamarRes = await pendaftaranApi.getKamar();
+        daftarKamar.value = kamarRes.kamar;
+    } catch (e) {
+        alert(e.message || 'Gagal memilih kamar');
+        showConfirmModal.value = false;
+    } finally {
+        isSubmitting.value = false;
+    }
 }
-
-const asramaLakiLaki = [
-  { id: 'anex', nama: 'Asrama Anex', icon: '🏢', nomorKamar: range(101, 148) },
-  { id: 'cendrawasih', nama: 'Asrama Cendrawasih', icon: '🐦', nomorKamar: range(201, 252) },
-  { id: 'hawk', nama: 'Asrama Hawk', icon: '🦅', nomorKamar: range(301, 355) },
-];
-
-const asramaPerempuan = [
-  { id: 'krisan', nama: 'Asrama Krisan', icon: '🌸', nomorKamar: range(101, 148) },
-  { id: 'melati', nama: 'Asrama Melati', icon: '🌼', nomorKamar: range(201, 252) },
-  { id: 'mawar', nama: 'Asrama Mawar', icon: '🌹', nomorKamar: range(301, 355) },
-];
-
-const daftarAsrama = computed(() =>
-  props.jenisKelamin === 'perempuan' ? asramaPerempuan : asramaLakiLaki
-);
 </script>
 
 <style scoped>
@@ -171,6 +270,51 @@ const daftarAsrama = computed(() =>
   background: rgba(255, 255, 255, 0.25);
   backdrop-filter: blur(6px);
 }
+
+/* Status Alert */
+.status-alert {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1.25rem 1.5rem;
+    border-radius: 16px;
+    margin-bottom: 2rem;
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+}
+.status-alert.theme-laki-laki {
+    background: #f0fdfa;
+    border-color: #ccfbf1;
+}
+.status-alert.theme-perempuan {
+    background: #f5f3ff;
+    border-color: #ede9fe;
+}
+.status-icon {
+    font-size: 2rem;
+}
+.status-text {
+    font-size: 1.05rem;
+    color: #1e293b;
+    line-height: 1.4;
+}
+
+/* Loading */
+.loading-state {
+    text-align: center;
+    padding: 3rem 0;
+    color: #64748b;
+}
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e2e8f0;
+    border-top-color: #94a3b8;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 0 auto 1rem;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
 
 /* ----- Asrama cards ----- */
 .asrama-list {
@@ -255,8 +399,8 @@ const daftarAsrama = computed(() =>
 /* ----- Room grid ----- */
 .kamar-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(56px, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(auto-fill, minmax(75px, 1fr));
+  gap: 0.75rem;
 }
 
 .kamar-btn {
@@ -266,8 +410,6 @@ const daftarAsrama = computed(() =>
   border: 2px solid #e2e8f0;
   border-radius: 14px;
   background: #f8fafc;
-  font-size: 0.9rem;
-  font-weight: 700;
   color: #475569;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -275,14 +417,44 @@ const daftarAsrama = computed(() =>
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-direction: column;
 }
 
-.kamar-btn:hover {
+.kamar-btn:hover:not(:disabled) {
   border-color: #cbd5e1;
   background: #f1f5f9;
   color: #1e293b;
-  transform: translateY(-1px);
+  transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+}
+
+.kamar-btn:disabled.full {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.kamar-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+}
+
+.kamar-num {
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.kamar-occupancy {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: #64748b;
+}
+
+.kamar-occupancy.full-text {
+    color: #ef4444;
 }
 
 .kamar-btn.theme-laki-laki.selected {
@@ -336,8 +508,23 @@ const daftarAsrama = computed(() =>
 
 .selected-value {
   flex: 1;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 700;
+}
+
+.selected-action-btn {
+    background: #fff;
+    color: #1e293b;
+    border: none;
+    padding: 0.5rem 1.25rem;
+    border-radius: 999px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    transition: transform 0.2s;
+}
+.selected-action-btn:hover {
+    transform: scale(1.05);
 }
 
 .selected-clear {
@@ -354,6 +541,81 @@ const daftarAsrama = computed(() =>
 
 .selected-clear:hover {
   background: rgba(255, 255, 255, 0.4);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    padding: 1.5rem;
+}
+.modal-content {
+    background: #fff;
+    border-radius: 20px;
+    padding: 2rem;
+    width: 100%;
+    max-width: 400px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    text-align: center;
+}
+.modal-content h3 {
+    margin: 0 0 1rem;
+    font-size: 1.4rem;
+    color: #0f172a;
+}
+.modal-content p {
+    color: #475569;
+    margin-bottom: 0.5rem;
+}
+.warning-text {
+    color: #ef4444 !important;
+    font-size: 0.85rem;
+    margin-bottom: 1.5rem !important;
+}
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 2rem;
+}
+.modal-actions button {
+    flex: 1;
+    padding: 0.75rem;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 1rem;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+.btn-cancel {
+    background: #f1f5f9;
+    color: #475569;
+}
+.btn-cancel:hover:not(:disabled) {
+    background: #e2e8f0;
+}
+.btn-confirm {
+    background: #0f766e;
+    color: #fff;
+}
+.btn-confirm:hover:not(:disabled) {
+    background: #0d9488;
+}
+.theme-perempuan .btn-confirm {
+    background: #6d28d9;
+}
+.theme-perempuan .btn-confirm:hover:not(:disabled) {
+    background: #5b21b6;
+}
+.modal-actions button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 /* Transition */

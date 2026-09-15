@@ -75,6 +75,7 @@
 import { reactive, ref } from "vue";
 import { useRouter } from "vue-router";
 import { authApi } from "@/api/auth";
+import { useAuthStore } from "@/stores/auth";
 
 const STORAGE_USERS = "slapur_users";
 
@@ -109,9 +110,10 @@ async function handleRegister() {
         "Terjadi kesalahan: respons server tidak valid. Coba lagi.";
       return;
     }
-    authApi.setToken(res.token);
+    
     if (res.user && typeof res.user === "object") {
-      localStorage.setItem("user", JSON.stringify(res.user));
+      const authStore = useAuthStore();
+      authStore.setAuth(res.token, res.user);
     }
     successMsg.value =
       res.message ||

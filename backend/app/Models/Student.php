@@ -24,6 +24,18 @@ class Student extends Model
         'has_chosen_dorm_type',
         'has_chosen_room',
         'has_picked_up_key',
+        'nomor_pendaftaran',
+        'tempat_lahir',
+        'tanggal_lahir',
+        'alamat',
+        'nama_ayah',
+        'nama_ibu',
+        'pekerjaan_ayah',
+        'pekerjaan_ibu',
+        'no_telp_ortu',
+        'status_pendaftaran',
+        'dining_number',
+        'dining_status',
     ];
 
     protected $casts = [
@@ -90,5 +102,25 @@ class Student extends Model
         }
 
         return (int)(($completed / $steps) * 100);
+    }
+
+    /**
+     * Get or auto-generate dining number based on registration sequence (e.g., 001, 002)
+     */
+    public function getDiningNumberFormatted(): string
+    {
+        if (!empty($this->dining_number)) {
+            return str_pad($this->dining_number, 3, '0', STR_PAD_LEFT);
+        }
+
+        if (!empty($this->nomor_pendaftaran)) {
+            $parts = explode('-', $this->nomor_pendaftaran);
+            $lastPart = end($parts);
+            if (is_numeric($lastPart)) {
+                return str_pad($lastPart, 3, '0', STR_PAD_LEFT);
+            }
+        }
+
+        return str_pad((string) $this->id, 3, '0', STR_PAD_LEFT);
     }
 }

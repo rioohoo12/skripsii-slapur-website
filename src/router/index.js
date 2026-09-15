@@ -70,6 +70,9 @@ const routes = [
     children: [
       { path: '', redirect: (r) => ({ path: `/siswa/${r.params.jenisKelamin}/dashboard` }) },
       { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/siswa/DashboardHome.vue') },
+      { path: 'jadwal', name: 'JadwalPelajaran', component: () => import('@/views/siswa/DataKelas.vue') },
+      { path: 'dining', name: 'Dining', component: () => import('@/views/siswa/Dining.vue') },
+      { path: 'asrama', name: 'Asrama', component: () => import('@/views/siswa/Asrama.vue') },
       { path: 'biodata', name: 'Biodata', component: () => import('@/views/siswa/Biodata.vue') },
       { path: 'keuangan', name: 'Keuangan', component: () => import('@/views/siswa/Keuangan.vue') },
       { path: 'kafetaria', name: 'Kafetaria', component: () => import('@/views/siswa/Kafetaria.vue') },
@@ -78,6 +81,7 @@ const routes = [
       { path: 'data-kelas/review', name: 'ReviewKelas', component: () => import('@/views/siswa/ReviewKelas.vue') },
       { path: 'grade', name: 'GradeNilai', component: () => import('@/views/siswa/GradeNilai.vue') },
       { path: 'pendaftaran', name: 'Pendaftaran', component: () => import('@/views/siswa/PendaftaranStatus.vue') },
+      { path: 'pendaftaran/form', name: 'FormPendaftaran', component: () => import('@/views/siswa/PendaftaranForm.vue') },
       { path: 'pendaftaran/status', name: 'StatusPendaftaran', component: () => import('@/views/siswa/PendaftaranStatus.vue') },
       { path: 'pendaftaran/permohonan', name: 'PermohonanPendaftaran', component: () => import('@/views/siswa/PendaftaranPermohonan.vue') },
       { path: 'pendaftaran/kamar', name: 'PilihKamar', component: () => import('@/views/siswa/PilihKamar.vue') },
@@ -100,52 +104,36 @@ const router = createRouter({
   routes,
 });
 
-function isLoggedIn() {
-  try {
-    return !!localStorage.getItem('auth_token') && !!localStorage.getItem('user');
-  } catch {
-    return false;
-  }
-}
-
-const GURU_ROLES = ['guru', 'admin', 'super_admin'];
-const STAFF_ROLES = ['staff', 'admin', 'super_admin'];
-
-function isGuruRole(user) {
-  return user?.role && GURU_ROLES.includes(user.role);
-}
-
-function isStaffRole(user) {
-  return user?.role && STAFF_ROLES.includes(user.role);
-}
-
-function getUser() {
-  try {
-    return JSON.parse(localStorage.getItem('user') || '{}');
-  } catch {
-    return {};
-  }
-}
+import { useAuthStore } from '@/stores/auth';
 
 router.beforeEach((to, _from, next) => {
+  const authStore = useAuthStore();
+  // Ensure store is initialized from localStorage on first load
+  if (!authStore.token && localStorage.getItem('auth_token')) {
+    authStore.init();
+  }
+
   const toSiswa = to.path.startsWith('/siswa/');
   const toGuru = to.path.startsWith('/guru');
-  const user = getUser();
-
   const toStaff = to.path.startsWith('/staff');
+
+  const isLoggedIn = authStore.isLoggedIn;
+  const user = authStore.user;
+  const isGuruRole = authStore.isGuru;
+  const isStaffRole = authStore.isStaff;
 
   if (toGuru) {
     const guruPublicPaths = ['/guru', '/guru/buat-akun', '/guru/lupa-password', '/guru/reset-password'];
     const isGuruPublic = guruPublicPaths.includes(to.path);
-    if (to.path === '/guru' && isLoggedIn() && isGuruRole(user)) {
+    if (to.path === '/guru' && isLoggedIn && isGuruRole) {
       next('/guru/dashboard');
       return;
     }
-    if (!isGuruPublic && !isLoggedIn()) {
+    if (!isGuruPublic && !isLoggedIn) {
       next('/guru');
       return;
     }
-    if (!isGuruPublic && !isGuruRole(user)) {
+    if (!isGuruPublic && !isGuruRole) {
       next('/guru');
       return;
     }
@@ -154,15 +142,15 @@ router.beforeEach((to, _from, next) => {
   }
 
   if (toStaff) {
-    if (to.path === '/staff' && isLoggedIn() && isStaffRole(user)) {
+    if (to.path === '/staff' && isLoggedIn && isStaffRole) {
       next('/staff/dashboard');
       return;
     }
-    if (to.path !== '/staff' && !isLoggedIn()) {
+    if (to.path !== '/staff' && !isLoggedIn) {
       next('/staff');
       return;
     }
-    if (to.path !== '/staff' && !isStaffRole(user)) {
+    if (to.path !== '/staff' && !isStaffRole) {
       next('/staff');
       return;
     }
@@ -170,7 +158,7 @@ router.beforeEach((to, _from, next) => {
     return;
   }
 
-  if (to.path === '/siswa' && isLoggedIn()) {
+  if (to.path === '/siswa' && isLoggedIn) {
     try {
       const jk = user.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
       next(`/siswa/${jk}/dashboard`);
@@ -180,11 +168,11 @@ router.beforeEach((to, _from, next) => {
       return;
     }
   }
-  if (toSiswa && !isLoggedIn()) {
+  if (toSiswa && !isLoggedIn) {
     next('/siswa');
     return;
   }
-  if (to.path === '/register' && isLoggedIn()) {
+  if (to.path === '/register' && isLoggedIn) {
     try {
       const jk = user.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
       next(`/siswa/${jk}/dashboard`);
@@ -195,12 +183,12 @@ router.beforeEach((to, _from, next) => {
     }
   }
   if (to.path === '/') {
-    if (isLoggedIn()) {
-      if (isGuruRole(user)) {
+    if (isLoggedIn) {
+      if (isGuruRole) {
         next('/guru/dashboard');
         return;
       }
-      if (isStaffRole(user)) {
+      if (isStaffRole) {
         next('/staff/dashboard');
         return;
       }

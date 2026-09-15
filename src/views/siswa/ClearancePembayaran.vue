@@ -1,7 +1,7 @@
 <template>
   <div class="clearance-pembayaran-page" :class="themeClass">
     <h2 class="page-heading">Pembayaran Pendaftaran</h2>
-    <p class="page-subtitle">Status pembayaran 60% pendaftaran dan verifikasi (diverifikasi via chatbot).</p>
+    <p class="page-subtitle">Status pembayaran 60% pendaftaran dan verifikasi (diverifikasi otomatis via Midtrans).</p>
 
     <div class="content-layout">
       <main class="content-main">
@@ -12,6 +12,13 @@
               {{ statusLabel }}
             </div>
             <p class="status-desc">{{ statusDesc }}</p>
+            
+            <div v-if="statusPembayaran !== 'terverifikasi'" class="payment-actions">
+              <button class="btn-pay" :disabled="loadingPay" @click="handleBayar">
+                <span v-if="loadingPay" class="spinner"></span>
+                {{ loadingPay ? 'Memproses...' : 'Bayar Sekarang (Midtrans)' }}
+              </button>
+            </div>
           </div>
         </PageCard>
 
@@ -26,15 +33,11 @@
                 </tr>
                 <tr>
                   <td class="label">Total Tagihan</td>
-                  <td class="value">{{ payment ? formatRp(payment.total_tagihan) : '—' }}</td>
+                  <td class="value">{{ payment ? formatRp(payment.total_tagihan) : 'Rp 5.000.000' }}</td>
                 </tr>
                 <tr>
-                  <td class="label">Nominal 60%</td>
-                  <td class="value">{{ payment ? formatRp(payment.nominal_60_percent) : '—' }}</td>
-                </tr>
-                <tr>
-                  <td class="label">Nominal Dibayar</td>
-                  <td class="value">{{ payment ? formatRp(payment.nominal_dibayar) : '—' }}</td>
+                  <td class="label">Nominal Dibayar (60%)</td>
+                  <td class="value">{{ payment ? formatRp(payment.nominal_dibayar) : 'Rp 3.000.000' }}</td>
                 </tr>
                 <tr>
                   <td class="label">Verifikasi</td>
@@ -51,8 +54,8 @@
           <template #header>Informasi</template>
           <ul class="info-list">
             <li>Lakukan pembayaran pendaftaran sesuai nominal yang ditetapkan.</li>
-            <li>Setelah bayar, unggah bukti transfer jika diminta.</li>
-            <li>Status akan berubah setelah verifikasi oleh admin.</li>
+            <li>Pembayaran menggunakan Virtual Account, GoPay, OVO, dll via Midtrans.</li>
+            <li>Status akan terupdate otomatis setelah pembayaran berhasil.</li>
           </ul>
         </PageCard>
 
@@ -73,6 +76,7 @@
 import { ref, computed, onMounted } from 'vue';
 import PageCard from '@/components/PageCard.vue';
 import { pendaftaranApi } from '@/api/pendaftaran.js';
+import { paymentApi } from '@/api/payment.js';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
@@ -80,22 +84,23 @@ const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 const tahunSemester = ref('2025/2026 - GENAP');
 const payment = ref(null);
 const loadError = ref('');
+const loadingPay = ref(false);
 
-const statusPembayaran = computed(() => payment.value?.status ?? '');
+const statusPembayaran = computed(() => payment.value?.status ?? 'belum_bayar');
 const statusLabel = computed(() => {
-  if (statusPembayaran.value === 'terverifikasi') return 'Disetujui / Berhasil Bayar';
-  if (statusPembayaran.value === 'menunggu') return 'Menunggu';
-  return 'Belum ada data';
+  if (statusPembayaran.value === 'terverifikasi') return 'Berhasil Bayar';
+  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Menunggu Pembayaran';
+  return 'Belum Dibayar';
 });
 const statusClass = computed(() => {
   if (statusPembayaran.value === 'terverifikasi') return 'status-ok';
-  if (statusPembayaran.value === 'menunggu') return 'status-pending';
-  return '';
+  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'status-pending';
+  return 'status-no';
 });
 const statusDesc = computed(() => {
-  if (statusPembayaran.value === 'terverifikasi') return 'Pembayaran pendaftaran Anda telah terverifikasi.';
-  if (statusPembayaran.value === 'menunggu') return 'Pembayaran Anda masih menunggu verifikasi. Lakukan verifikasi via chatbot di menu Permohonan Pendaftaran.';
-  return 'Lakukan pembayaran 60% dan verifikasi melalui chatbot di menu Pendaftaran > Permohonan Pendaftaran.';
+  if (statusPembayaran.value === 'terverifikasi') return 'Pembayaran pendaftaran Anda telah berhasil terverifikasi.';
+  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Selesaikan pembayaran Anda melalui Midtrans.';
+  return 'Silakan klik Bayar Sekarang untuk menyelesaikan pembayaran pendaftaran.';
 });
 
 function formatRp(n) {
@@ -111,13 +116,44 @@ function formatDate(iso) {
   }
 }
 
-onMounted(async () => {
+async function loadData() {
   try {
     const data = await pendaftaranApi.getStatus();
     payment.value = data.payment ?? null;
   } catch (e) {
     loadError.value = e.message || 'Gagal memuat status';
   }
+}
+
+async function handleBayar() {
+  loadingPay.value = true;
+  try {
+    const res = await paymentApi.createTransaction();
+    if (res.snap_token) {
+      window.snap.pay(res.snap_token, {
+        onSuccess: function(result){
+          loadData();
+        },
+        onPending: function(result){
+          loadData();
+        },
+        onError: function(result){
+          alert('Pembayaran gagal atau terjadi kesalahan.');
+        },
+        onClose: function(){
+          loadData();
+        }
+      });
+    }
+  } catch (e) {
+    alert(e.message || 'Gagal memulai pembayaran.');
+  } finally {
+    loadingPay.value = false;
+  }
+}
+
+onMounted(() => {
+  loadData();
 });
 </script>
 
@@ -280,5 +316,57 @@ onMounted(async () => {
 
 .theme-perempuan .select-tahun:focus {
   border-color: #7c3aed;
+}
+
+.payment-actions {
+  margin-top: 1rem;
+}
+
+.btn-pay {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--primary);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-pay:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-pay:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.theme-laki-laki .btn-pay {
+  background: #0f766e;
+}
+
+.theme-perempuan .btn-pay {
+  background: #7c3aed;
+}
+
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

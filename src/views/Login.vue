@@ -52,8 +52,11 @@
 import { reactive, ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
+
 const form = reactive({
   email: '',
   password: '',
@@ -78,15 +81,10 @@ watch(loading, (isLoading) => {
 });
 
 onMounted(() => {
-  try {
-    const token = localStorage.getItem('auth_token');
-    const user = localStorage.getItem('user');
-    if (token && user) {
-      const u = JSON.parse(user);
-      const jk = u.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
-      router.replace(`/siswa/${jk}/dashboard`);
-    }
-  } catch (_) {}
+  if (authStore.isLoggedIn) {
+    const jk = authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+    router.replace(`/siswa/${jk}/dashboard`);
+  }
 });
 
 async function handleLogin() {
@@ -94,7 +92,6 @@ async function handleLogin() {
   loading.value = true;
   try {
     const res = await authApi.login(form.email.trim(), form.password);
-    authApi.setToken(res.token);
     const user = res.user
       ? {
           id: res.user.id,
@@ -104,7 +101,10 @@ async function handleLogin() {
           jenis_kelamin: res.user.jenis_kelamin ?? 'laki-laki',
         }
       : null;
-    if (user) localStorage.setItem('user', JSON.stringify(user));
+    
+    if (user && res.token) {
+      authStore.setAuth(res.token, user);
+    }
     const jk = user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
     router.push(`/siswa/${jk}/dashboard`);
     return;

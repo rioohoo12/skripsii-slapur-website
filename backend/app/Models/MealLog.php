@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class MealLog extends Model
 {
     protected $table = 'cafeteria_logs';
+    public $timestamps = false;
 
     protected $fillable = [
         'student_id',

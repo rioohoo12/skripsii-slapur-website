@@ -60,4 +60,16 @@ export const pendaftaranApi = {
       body: form,
     });
   },
+  async submitForm(data) {
+    return request('/v1/registrations', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  async pilihKamar(data) {
+    return request('/pendaftaran/kamar', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
 };

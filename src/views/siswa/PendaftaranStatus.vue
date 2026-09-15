@@ -3,64 +3,94 @@
     <div class="status-layout">
       <!-- Konten utama -->
       <main class="status-main">
-        <!-- Petunjuk Pendaftaran -->
+        <!-- Petunjuk Pendaftaran Berurutan -->
         <PageCard :jenis-kelamin="jenisKelamin" class="card-petunjuk">
-          <template #header>Petunjuk Pendaftaran</template>
+          <template #header>Petunjuk & Aturan Pendaftaran Berurutan</template>
           <div class="petunjuk-body">
             <ol class="petunjuk-list">
-              <li>Langkah 0–2 dapat dilakukan pada periode yang ditentukan.</li>
-              <li>Langkah 3 dilakukan sesuai jadwal resmi pendaftaran.</li>
-              <li>Setelah menyelesaikan langkah 3, perubahan status tidak dapat dilakukan.</li>
-              <li>Siswa yang tidak menyelesaikan langkah pendaftaran akan mendapat hold.</li>
-              <li>Semua fitur perubahan hanya terbuka pada periode pendaftaran.</li>
+              <li><strong>Alur Berurutan Wajib:</strong> Langkah 0 s/d Langkah 5 harus dilakukan secara berurutan.</li>
+              <li><strong>Syarat Pembukaan Langkah:</strong> Langkah berikutnya hanya terbuka jika langkah sebelumnya telah <strong>terverifikasi (selesai)</strong>.</li>
+              <li><strong>Status Terkunci:</strong> Apabila langkah sebelumnya belum terverifikasi, langkah berikutnya akan berstatus <strong>🔒 Terkunci</strong> dan tidak dapat diakses.</li>
+              <li><strong>Hasil Akhir:</strong> Setelah menyelesaikan Langkah 5 (Upload Dokumen), jadwal pelajaran dan nomor makan (dining) Anda akan otomatis diaktifkan.</li>
             </ol>
 
             <div class="banner-info" :class="themeClass">
               <span class="banner-emoji">ℹ️</span>
-              <span>Status pendaftaran Anda akan tampil di bawah setelah data tersedia.</span>
+              <span>Pastikan Anda menyelesaikan setiap langkah berurutan agar status terverifikasi.</span>
             </div>
           </div>
         </PageCard>
 
-        <!-- Status Pendaftaran - Kartu langkah (gambaran, data kosong) -->
+        <!-- Status Pendaftaran - Kartu Langkah Berurutan -->
         <h3 class="section-title">
           <span class="title-icon">📋</span>
-          Status Pendaftaran
+          Status & Tahapan Pendaftaran (Langkah 0 – 5)
         </h3>
+
+        <!-- Alert Modal/Banner jika klik langkah terkunci -->
+        <Transition name="fade">
+          <div v-if="lockedAlert" class="locked-alert-box">
+            <span class="alert-icon">🔒</span>
+            <div class="alert-text">
+              <strong>Langkah Terkunci!</strong>
+              <span>{{ lockedAlert }}</span>
+            </div>
+            <button class="close-alert" @click="lockedAlert = null">✕</button>
+          </div>
+        </Transition>
+
         <div class="status-cards">
-          <router-link
+          <div
             v-for="(step, i) in langkahPendaftaran"
             :key="i"
-            :to="stepRoute(step)"
             class="status-card"
-            :class="[themeClass, { completed: step.selesai }]"
+            :class="[
+              themeClass, 
+              { 
+                completed: step.selesai, 
+                locked: !step.unlocked, 
+                active: step.unlocked && !step.selesai 
+              }
+            ]"
+            @click="handleStepClick(step)"
           >
-            <div class="status-card-step-num">{{ i + 1 }}</div>
+            <div class="status-card-step-num">{{ i }}</div>
             <div class="status-card-icon" :class="'icon-' + step.iconType">
-              <span class="icon-emoji" aria-hidden="true">{{ step.icon }}</span>
+              <span class="icon-emoji" aria-hidden="true">{{ step.unlocked ? step.icon : '🔒' }}</span>
             </div>
+            
             <div class="status-card-body">
-              <h4 class="status-card-title">{{ step.judul }}</h4>
+              <h4 class="status-card-title">
+                Langkah {{ i }} - {{ step.judulFull }}
+              </h4>
               <p class="status-card-desc">
-                {{ step.selesai ? step.deskripsi : 'Belum ada data.' }}
+                <span v-if="step.selesai" class="text-success">✔ {{ step.statusLabel }}</span>
+                <span v-else-if="!step.unlocked" class="text-locked">🔒 {{ step.statusLabel }}</span>
+                <span v-else class="text-pending">⏳ {{ step.statusLabel }}</span>
               </p>
             </div>
-            <div v-if="step.selesai" class="status-card-badge">
+
+            <!-- Badges -->
+            <div v-if="step.selesai" class="status-card-badge completed">
               <span class="badge-check">✓</span>
+            </div>
+            <div v-else-if="!step.unlocked" class="status-card-badge locked">
+              <span class="badge-lock">🔒</span>
             </div>
             <div v-else class="status-card-pending">
               <span class="pending-dot"></span>
-              <span class="pending-text">Menunggu</span>
+              <span class="pending-text">Proses</span>
             </div>
-            <span class="status-card-arrow">→</span>
-          </router-link>
+
+            <span v-if="step.unlocked" class="status-card-arrow">→</span>
+          </div>
         </div>
       </main>
 
-      <!-- Sidebar kanan -->
+      <!-- Sidebar Kanan -->
       <aside class="status-sidebar">
         <PageCard :jenis-kelamin="jenisKelamin" class="card-profile">
-          <template #header>Mahasiswa</template>
+          <template #header>Mahasiswa / Siswa</template>
           <div class="profile-body">
             <div class="profile-avatar">{{ inisialNama }}</div>
             <p class="profile-nama">{{ namaSiswa }}</p>
@@ -85,22 +115,19 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, computed, onMounted } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import PageCard from '@/components/PageCard.vue';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const route = useRoute();
+const router = useRouter();
+
 const jk = computed(() => props.jenisKelamin || route.params.jenisKelamin || 'laki-laki');
 const themeClass = computed(() => 'theme-' + jk.value);
-
-function stepRoute(step) {
-  return { path: `/siswa/${jk.value}/${step.path}` };
-}
-
 const tahunSemester = ref('2025/2026 - GENAP');
+const lockedAlert = ref(null);
 
-// Data user dari localStorage (gambaran)
 const user = computed(() => {
   try {
     return JSON.parse(localStorage.getItem('user') || '{}');
@@ -119,59 +146,111 @@ const inisialNama = computed(() => {
 const nisAtauId = computed(() => user.value.id ?? user.value.nis ?? '-');
 const prodiAtauKelas = computed(() => user.value.prodi ?? user.value.kelas ?? 'SLA Purwodadi');
 
-// Langkah pendaftaran – gambaran kosong; path mengarah ke menu masing-masing
 const langkahPendaftaran = ref([
   {
-    judul: 'Langkah 0 - Permohonan Pendaftaran',
-    deskripsi: '',
+    index: 0,
+    judulFull: 'Permohonan Pendaftaran',
     icon: '📝',
     iconType: 'permohonan',
-    path: 'pendaftaran/permohonan',
+    path: 'pendaftaran/form',
+    unlocked: true,
     selesai: false,
+    statusLabel: 'Menunggu Pengisian Form',
   },
   {
-    judul: 'Langkah 1 - Clearance Slip',
-    deskripsi: '',
+    index: 1,
+    judulFull: 'Clearance Slip (Pembayaran)',
     icon: '✅',
     iconType: 'clearance',
-    path: 'clearance/mid',
+    path: 'clearance/pembayaran-pendaftaran',
+    unlocked: false,
     selesai: false,
+    statusLabel: 'Terkunci (Selesaikan Langkah 0)',
   },
   {
-    judul: 'Langkah 2 - Asrama / Luar Asrama',
-    deskripsi: '',
+    index: 2,
+    judulFull: 'Asrama / Luar Asrama (Pilih Kamar)',
     icon: '🏠',
     iconType: 'asrama',
     path: 'pendaftaran/kamar',
+    unlocked: false,
     selesai: false,
+    statusLabel: 'Terkunci (Selesaikan Langkah 1)',
   },
   {
-    judul: 'Langkah 3 - Administrasi',
-    deskripsi: '',
+    index: 3,
+    judulFull: 'Administrasi',
     icon: '📁',
     iconType: 'administrasi',
     path: 'administrasi/surat',
+    unlocked: false,
     selesai: false,
+    statusLabel: 'Terkunci (Selesaikan Langkah 2)',
   },
   {
-    judul: 'Langkah 4 - Kurikulum',
-    deskripsi: '',
+    index: 4,
+    judulFull: 'Kurikulum',
     icon: '📚',
     iconType: 'kurikulum',
-    // Kurikulum bukan dipilih siswa; ditampilkan otomatis sesuai kelas yang didaftar.
     path: 'pendaftaran/kurikulum',
+    unlocked: false,
     selesai: false,
+    statusLabel: 'Terkunci (Selesaikan Langkah 3)',
   },
   {
-    judul: 'Langkah 5 - Upload Dokumen',
-    deskripsi: '',
+    index: 5,
+    judulFull: 'Upload Dokumen',
     icon: '📎',
     iconType: 'dokumen',
-    // Langsung ke upload dokumen (bukan menu Administrasi).
     path: 'pendaftaran/dokumen',
+    unlocked: false,
     selesai: false,
+    statusLabel: 'Terkunci (Selesaikan Langkah 4)',
   },
 ]);
+
+async function fetchStatus() {
+  try {
+    const token = localStorage.getItem('auth_token');
+    if (!token) return;
+    const res = await fetch('/api/pendaftaran/status', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.steps) {
+        Object.keys(data.steps).forEach((idx) => {
+          const apiStep = data.steps[idx];
+          if (langkahPendaftaran.value[idx]) {
+            langkahPendaftaran.value[idx].unlocked = apiStep.unlocked;
+            langkahPendaftaran.value[idx].selesai = apiStep.selesai;
+            langkahPendaftaran.value[idx].statusLabel = apiStep.status_label;
+          }
+        });
+      }
+    }
+  } catch (e) {
+    console.error('Failed to fetch pendaftaran status:', e);
+  }
+}
+
+function handleStepClick(step) {
+  if (!step.unlocked) {
+    const prevIndex = step.index - 1;
+    const prevStep = langkahPendaftaran.value[prevIndex];
+    lockedAlert.value = `Langkah ${step.index} (${step.judulFull}) masih terkunci. Anda harus meverifikasi dan menyelesaikan Langkah ${prevIndex} (${prevStep?.judulFull}) terlebih dahulu.`;
+    return;
+  }
+  lockedAlert.value = null;
+  router.push(`/siswa/${jk.value}/${step.path}`);
+}
+
+onMounted(() => {
+  fetchStatus();
+});
 </script>
 
 <style scoped>
@@ -254,6 +333,45 @@ const langkahPendaftaran = ref([
   font-size: 1.25rem;
 }
 
+/* Locked Alert Box */
+.locked-alert-box {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 1rem 1.25rem;
+  border-radius: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.85rem;
+  position: relative;
+}
+
+.alert-icon {
+  font-size: 1.5rem;
+}
+
+.alert-text {
+  display: flex;
+  flex-direction: column;
+  font-size: 0.9rem;
+}
+
+.alert-text strong {
+  font-size: 0.95rem;
+  margin-bottom: 0.2rem;
+}
+
+.close-alert {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: transparent;
+  border: none;
+  font-weight: bold;
+  color: #991b1b;
+  cursor: pointer;
+}
+
 .status-cards {
   display: flex;
   flex-direction: column;
@@ -271,14 +389,32 @@ const langkahPendaftaran = ref([
   border: 1px solid #e2e8f0;
   border-radius: 16px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
-  transition: box-shadow 0.25s ease, border-color 0.2s ease, transform 0.2s ease;
-  text-decoration: none;
-  color: inherit;
+  transition: all 0.2s ease;
   cursor: pointer;
 }
 
-a.status-card {
-  display: flex;
+.status-card.locked {
+  background: #f8fafc;
+  border-style: dashed;
+  border-color: #cbd5e1;
+  opacity: 0.75;
+}
+
+.status-card.locked:hover {
+  border-color: #ef4444;
+  background: #fff5f5;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.1);
+}
+
+.status-card.active {
+  border-color: #3b82f6;
+  background: #f0f9ff;
+}
+
+.status-card.completed {
+  border-left: 5px solid #10b981;
+  background: #ecfdf5;
+  border-color: #a7f3d0;
 }
 
 .status-card-arrow {
@@ -289,53 +425,12 @@ a.status-card {
   font-size: 1.1rem;
   font-weight: 700;
   color: #94a3b8;
-  opacity: 0;
-  transition: opacity 0.2s ease, transform 0.2s ease;
+  transition: transform 0.2s ease;
 }
 
 .status-card:hover .status-card-arrow {
-  opacity: 1;
-  transform: translateY(-50%) translateX(2px);
-}
-
-.status-card.theme-laki-laki:hover .status-card-arrow {
-  color: #0f766e;
-}
-
-.status-card.theme-perempuan:hover .status-card-arrow {
-  color: #7c3aed;
-}
-
-.status-card:hover {
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
-}
-
-/* Pending: dashed border, muted */
-.status-card:not(.completed) {
-  border-style: dashed;
-  background: #fafbfc;
-}
-
-.status-card.theme-laki-laki:not(.completed) {
-  border-color: #99f6e4;
-  background: linear-gradient(135deg, #fafbfc 0%, #f0fdfa 100%);
-}
-
-.status-card.theme-perempuan:not(.completed) {
-  border-color: #ddd6fe;
-  background: linear-gradient(135deg, #fafbfc 0%, #f5f3ff 100%);
-}
-
-.status-card.theme-laki-laki.completed {
-  border-left: 4px solid #0f766e;
-  background: #f0fdfa;
-  border-color: #99f6e4;
-}
-
-.status-card.theme-perempuan.completed {
-  border-left: 4px solid #7c3aed;
-  background: #f5f3ff;
-  border-color: #ddd6fe;
+  transform: translateY(-50%) translateX(3px);
+  color: #0f1e3c;
 }
 
 .status-card-step-num {
@@ -350,18 +445,20 @@ a.status-card {
   border-radius: 50%;
   font-size: 0.85rem;
   font-weight: 700;
-  color: #64748b;
-  background: #e2e8f0;
+  color: #ffffff;
+  background: #64748b;
 }
 
-.status-card.theme-laki-laki .status-card-step-num {
-  background: #99f6e4;
-  color: #0f766e;
+.status-card.completed .status-card-step-num {
+  background: #10b981;
 }
 
-.status-card.theme-perempuan .status-card-step-num {
-  background: #ddd6fe;
-  color: #5b21b6;
+.status-card.active .status-card-step-num {
+  background: #3b82f6;
+}
+
+.status-card.locked .status-card-step-num {
+  background: #94a3b8;
 }
 
 .status-card-icon {
@@ -374,46 +471,7 @@ a.status-card {
   border-radius: 14px;
   font-size: 1.6rem;
   margin-left: 2rem;
-}
-
-.status-card-icon.icon-permohonan {
-  background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
-  box-shadow: 0 2px 8px rgba(14, 165, 233, 0.2);
-}
-
-.status-card-icon.icon-clearance {
-  background: linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%);
-  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
-}
-
-.status-card-icon.icon-asrama {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-  box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2);
-}
-
-.status-card-icon.icon-kurikulum {
-  background: linear-gradient(135deg, #e9d5ff 0%, #d8b4fe 100%);
-  box-shadow: 0 2px 8px rgba(139, 92, 246, 0.2);
-}
-
-.status-card-icon.icon-administrasi {
-  background: linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%);
-  box-shadow: 0 2px 8px rgba(100, 116, 139, 0.2);
-}
-
-.status-card.completed .status-card-icon {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.25);
-}
-
-.icon-emoji {
-  line-height: 1;
-}
-
-.status-card-body {
-  flex: 1;
-  min-width: 0;
-  padding-top: 0.1rem;
+  background: #f1f5f9;
 }
 
 .status-card-body {
@@ -429,16 +487,14 @@ a.status-card {
 }
 
 .status-card-desc {
-  font-size: 0.9rem;
-  color: #64748b;
+  font-size: 0.88rem;
   margin: 0;
-  line-height: 1.55;
-  font-style: italic;
+  font-weight: 600;
 }
 
-.status-card:not(.completed) .status-card-desc {
-  color: #94a3b8;
-}
+.text-success { color: #047857; }
+.text-pending { color: #1d4ed8; }
+.text-locked { color: #991b1b; }
 
 .status-card-badge {
   position: absolute;
@@ -449,12 +505,19 @@ a.status-card {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #22c55e;
-  color: #fff;
   border-radius: 50%;
   font-size: 0.95rem;
   font-weight: 700;
-  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.4);
+}
+
+.status-card-badge.completed {
+  background: #10b981;
+  color: #fff;
+}
+
+.status-card-badge.locked {
+  background: #cbd5e1;
+  color: #475569;
 }
 
 .status-card-pending {
@@ -466,14 +529,14 @@ a.status-card {
   gap: 0.4rem;
   font-size: 0.8rem;
   font-weight: 600;
-  color: #94a3b8;
+  color: #3b82f6;
 }
 
 .pending-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #cbd5e1;
+  background: #3b82f6;
   animation: pulse 1.5s ease-in-out infinite;
 }
 
@@ -517,16 +580,6 @@ a.status-card {
   color: #475569;
 }
 
-.theme-laki-laki .profile-avatar {
-  background: #99f6e4;
-  color: #0f766e;
-}
-
-.theme-perempuan .profile-avatar {
-  background: #ddd6fe;
-  color: #5b21b6;
-}
-
 .profile-nama {
   font-size: 1rem;
   font-weight: 600;
@@ -552,12 +605,10 @@ a.status-card {
   cursor: pointer;
 }
 
-.select-tahun:focus {
-  outline: none;
-  border-color: #0f766e;
+.fade-enter-active, .fade-leave-active {
+  transition: opacity 0.3s;
 }
-
-.theme-perempuan .select-tahun:focus {
-  border-color: #7c3aed;
+.fade-enter-from, .fade-leave-to {
+  opacity: 0;
 }
 </style>

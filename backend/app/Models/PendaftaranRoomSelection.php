@@ -12,6 +12,9 @@ class PendaftaranRoomSelection extends Model
     protected $fillable = [
         'user_id',
         'pendaftaran_kamar_id',
+        'status',
+        'approved_at',
+        'notes',
     ];
 
     public function user(): BelongsTo

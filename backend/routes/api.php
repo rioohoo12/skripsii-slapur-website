@@ -42,10 +42,23 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('pendaftaran/kamar', [\App\Http\Controllers\Api\PendaftaranController::class, 'pilihKamar']);
     Route::post('pendaftaran/upload-bukti-pembayaran', [\App\Http\Controllers\Api\PendaftaranController::class, 'uploadBuktiPembayaran']);
     Route::post('pendaftaran/upload-dokumen', [\App\Http\Controllers\Api\PendaftaranController::class, 'uploadDokumen']);
+    Route::post('pendaftaran/form', [\App\Http\Controllers\Api\PendaftaranController::class, 'simpanForm']);
+    Route::get('dining/info', [\App\Http\Controllers\Api\DiningController::class, 'getInfo']);
+    Route::post('staff/dining/input', [\App\Http\Controllers\Api\DiningController::class, 'recordMeal']);
+    Route::get('staff/dining/logs', [\App\Http\Controllers\Api\DiningController::class, 'getStaffTodayLogs']);
+    Route::get('asrama/info', [\App\Http\Controllers\Api\PendaftaranController::class, 'asramaInfo']);
+    Route::post('staff/asrama/approve', [\App\Http\Controllers\Api\PendaftaranController::class, 'staffApproveAsrama']);
 
     // Data kelas untuk guru (SMP/SMA) — daftar kelas dan daftar siswa per kelas.
-    Route::prefix('guru')->group(function () {
+    Route::prefix('guru')->middleware('role:guru,admin,super_admin')->group(function () {
         Route::get('kelas', [GuruKelasController::class, 'index']);
         Route::get('kelas/{tingkat}', [GuruKelasController::class, 'show']);
     });
 });
+
+Route::prefix('v1')->middleware('auth:sanctum')->group(function () {
+    Route::post('registrations', [\App\Http\Controllers\Api\RegistrationController::class, 'store']);
+    Route::post('payments', [\App\Http\Controllers\Api\PaymentController::class, 'createTransaction']);
+});
+
+Route::post('webhooks/midtrans', [\App\Http\Controllers\Api\PaymentController::class, 'webhook']);

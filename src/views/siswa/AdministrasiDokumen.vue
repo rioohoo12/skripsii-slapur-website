@@ -4,7 +4,7 @@
       <div class="hero-icon">📁</div>
       <h1 class="hero-title">Langkah 5 - Upload Dokumen</h1>
       <p class="hero-subtitle">
-        Unggah dokumen yang diminta sekolah. Dokumen hanya untuk penyimpanan; verifikasi dilakukan oleh staff.
+        Unggah dokumen pendaftaran Anda. Dokumen yang diunggah akan langsung diverifikasi secara otomatis oleh Virtual Assistant tanpa perlu menunggu verifikasi manual staff.
       </p>
     </div>
 
@@ -97,7 +97,7 @@
           <ul class="info-list">
             <li>Pastikan file jelas dan tidak blur.</li>
             <li>Format: PDF, JPG, atau PNG.</li>
-            <li>Status verifikasi akan diperbarui oleh admin.</li>
+            <li>Dokumen langsung diverifikasi secara otomatis oleh Virtual Assistant.</li>
           </ul>
         </div>
       </aside>

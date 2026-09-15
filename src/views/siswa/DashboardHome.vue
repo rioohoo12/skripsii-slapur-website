@@ -118,10 +118,10 @@
           <ul class="announcement-list">
             <li class="announcement-item border-l-blue">
               <div class="announce-header">
-                <h4 class="announce-title">Pengisian KRS Semester Ganjil 2025/2026</h4>
+                <h4 class="announce-title">Pengisian Pendaftaran Semester Ganjil 2025/2026</h4>
                 <span class="announce-date">05 Sep 2025</span>
               </div>
-              <p class="announce-desc">Silakan lakukan pengisian KRS melalui menu KRS...</p>
+              <p class="announce-desc">Silakan lakukan pendaftaran melalui menu Pendaftaran...</p>
             </li>
             <li class="announcement-item border-l-orange">
               <div class="announce-header">

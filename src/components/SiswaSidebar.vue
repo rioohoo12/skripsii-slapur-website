@@ -34,25 +34,31 @@
 </template>
 
 <script setup>
+import { computed } from 'vue';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 
-const menuItems = [
-  { path: '/siswa/laki-laki/dashboard', label: 'Beranda', icon: '🏠', exact: true },
-  { path: '/siswa/laki-laki/jadwal', label: 'Jadwal Pelajaran', icon: '📅' },
-  { path: '/siswa/laki-laki/krs', label: 'KRS', icon: '📋' },
-  { path: '/siswa/laki-laki/nilai', label: 'Nilai', icon: '📊' },
-  { path: '/siswa/laki-laki/presensi', label: 'Presensi', icon: '✅' },
-  { path: '/siswa/laki-laki/tugas', label: 'Tugas', icon: '📝' },
-  { path: '/siswa/laki-laki/tagihan', label: 'Tagihan', icon: '💰' },
-  { path: '/siswa/laki-laki/pengumuman', label: 'Pengumuman', icon: '📢' },
-  { path: '/siswa/laki-laki/profil', label: 'Profil', icon: '👤' },
-];
+const jenisKelamin = computed(() => {
+  return authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+});
 
-function handleLogout() {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
+const menuItems = computed(() => [
+  { path: `/siswa/${jenisKelamin.value}/dashboard`, label: 'Beranda', icon: '🏠', exact: true },
+  { path: `/siswa/${jenisKelamin.value}/jadwal`, label: 'Jadwal Pelajaran', icon: '📅' },
+  { path: `/siswa/${jenisKelamin.value}/dining`, label: 'Dining', icon: '🍽️' },
+  { path: `/siswa/${jenisKelamin.value}/asrama`, label: 'Asrama', icon: '🏰' },
+  { path: `/siswa/${jenisKelamin.value}/pendaftaran/form`, label: 'Pendaftaran', icon: '📋' },
+  { path: `/siswa/${jenisKelamin.value}/grade`, label: 'Nilai', icon: '📊' },
+  { path: `/siswa/${jenisKelamin.value}/absensi`, label: 'Presensi', icon: '✅' },
+  { path: `/siswa/${jenisKelamin.value}/keuangan`, label: 'Tagihan', icon: '💰' },
+  { path: `/siswa/${jenisKelamin.value}/biodata`, label: 'Profil', icon: '👤' },
+]);
+
+async function handleLogout() {
+  await authStore.logout();
   router.push('/siswa');
 }
 </script>
