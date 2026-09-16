@@ -47,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('staff/dining/input', [\App\Http\Controllers\Api\DiningController::class, 'recordMeal']);
     Route::get('staff/dining/logs', [\App\Http\Controllers\Api\DiningController::class, 'getStaffTodayLogs']);
     Route::get('asrama/info', [\App\Http\Controllers\Api\PendaftaranController::class, 'asramaInfo']);
+    Route::post('asrama/ganti-kamar', [\App\Http\Controllers\Api\PendaftaranController::class, 'gantiKamar']);
     Route::post('staff/asrama/approve', [\App\Http\Controllers\Api\PendaftaranController::class, 'staffApproveAsrama']);
 
     // Data kelas untuk guru (SMP/SMA) — daftar kelas dan daftar siswa per kelas.

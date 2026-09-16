@@ -12,6 +12,7 @@ class PendaftaranRoomSelection extends Model
     protected $fillable = [
         'user_id',
         'pendaftaran_kamar_id',
+        'requested_kamar_id',
         'status',
         'approved_at',
         'notes',
@@ -25,5 +26,10 @@ class PendaftaranRoomSelection extends Model
     public function kamar(): BelongsTo
     {
         return $this->belongsTo(PendaftaranKamar::class, 'pendaftaran_kamar_id');
+    }
+
+    public function requestedKamar(): BelongsTo
+    {
+        return $this->belongsTo(PendaftaranKamar::class, 'requested_kamar_id');
     }
 }

@@ -3,9 +3,9 @@
     <!-- Header Card -->
     <div class="header-card">
       <div class="header-info">
-        <span class="badge-tag">FASILITAS ASRAMA SEKOALH</span>
+        <span class="badge-tag">FASILITAS ASRAMA SEKOLAH</span>
         <h2>Status & Informasi Kamar Asrama</h2>
-        <p>Pantau nomor kamar asrama terdaftar dan status persetujuan penempatan kamar dari Staff Asrama.</p>
+        <p>Pantau nomor kamar asrama terdaftar dan status persetujuan penempatan / ganti kamar dari Staff Asrama.</p>
       </div>
 
       <div v-if="asramaData.has_selected_room" class="room-number-card">
@@ -34,9 +34,14 @@
         <div class="status-icon">{{ getStatusIcon(asramaData.status_persetujuan) }}</div>
         <div class="status-details">
           <div class="status-title">{{ asramaData.status_label }}</div>
-          <div class="status-desc">{{ asramaData.notes }}</div>
+          <div class="status-desc">
+            <span v-if="asramaData.requested_nomor_kamar && asramaData.status_persetujuan === 'pending'">
+              📌 <strong>Pengajuan Ganti Kamar:</strong> Menunggu verifikasi Staff Asrama untuk pindah dari Kamar <strong>{{ asramaData.nomor_kamar }}</strong> ke Kamar <strong>{{ asramaData.requested_nomor_kamar }}</strong>.
+            </span>
+            <span v-else>{{ asramaData.notes || 'Status permohonan kamar aktif anda.' }}</span>
+          </div>
           <div v-if="asramaData.approved_at" class="status-time">
-            Waktu Verifikasi: {{ asramaData.approved_at }}
+            Waktu Verifikasi Terakhir: {{ asramaData.approved_at }}
           </div>
         </div>
       </div>
@@ -53,6 +58,10 @@
               <span class="label">Nomor Kamar:</span>
               <span class="value font-bold">Kamar {{ asramaData.nomor_kamar }}</span>
             </div>
+            <div v-if="asramaData.requested_nomor_kamar" class="detail-item pending-change-item">
+              <span class="label">Pengajuan Ganti:</span>
+              <span class="value change-target">Kamar {{ asramaData.requested_nomor_kamar }} ⏳</span>
+            </div>
             <div class="detail-item">
               <span class="label">Tipe Gedung:</span>
               <span class="value">Asrama {{ jenisKelamin === 'perempuan' ? 'Putri' : 'Putra' }}</span>
@@ -67,9 +76,14 @@
             </div>
           </div>
           <div class="card-footer">
-            <router-link :to="`/siswa/${jenisKelamin}/pendaftaran/kamar`" class="btn-secondary">
-              🔄 Ganti Pilihan Kamar
-            </router-link>
+            <button 
+              @click="openModalGantiKamar" 
+              class="btn-secondary" 
+              :disabled="asramaData.status_persetujuan === 'pending'"
+            >
+              <span v-if="asramaData.status_persetujuan === 'pending'">⏳ Ganti Kamar Sedang Diproses Staff</span>
+              <span v-else>🔄 Ajukan Ganti Kamar Asrama</span>
+            </button>
           </div>
         </div>
 
@@ -94,6 +108,64 @@
         </div>
       </div>
     </div>
+
+    <!-- Modal Form Ganti Kamar -->
+    <div v-if="showModalGantiKamar" class="modal-backdrop" @click.self="showModalGantiKamar = false">
+      <div class="modal-card">
+        <div class="modal-header">
+          <div>
+            <h3>🔄 Permohonan Ganti Kamar Asrama</h3>
+            <p class="modal-sub">Pilihlah kamar baru yang tersedia. Pengajuan ini akan diverifikasi oleh Staff Asrama.</p>
+          </div>
+          <button class="btn-close" @click="showModalGantiKamar = false">✕</button>
+        </div>
+
+        <div class="modal-body">
+          <div v-if="changeErrorMsg" class="alert alert-error">{{ changeErrorMsg }}</div>
+          <div v-if="changeSuccessMsg" class="alert alert-success">{{ changeSuccessMsg }}</div>
+
+          <div class="current-room-info">
+            <span>Kamar Saat Ini: <strong>Kamar {{ asramaData.nomor_kamar }}</strong></span>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label">Pilih Kamar Tujuan:</label>
+            <div v-if="loadingRooms" class="loading-state">Mengambil daftar kamar...</div>
+            <div v-else-if="availableRooms.length === 0" class="empty-state">Tidak ada kamar lain yang tersedia saat ini.</div>
+            <div v-else class="rooms-grid">
+              <div 
+                v-for="room in availableRooms" 
+                :key="room.id"
+                :class="['room-option-card', { selected: selectedNewKamarId === room.id, disabled: room.id === asramaData.kamar_id || room.sisa_kuota <= 0 }]"
+                @click="selectRoom(room)"
+              >
+                <div class="room-opt-header">
+                  <span class="room-opt-name">Kamar {{ room.nomor_kamar }}</span>
+                  <span :class="['kuota-badge', room.sisa_kuota > 0 ? 'available' : 'full']">
+                    {{ room.sisa_kuota > 0 ? `Sisa: ${room.sisa_kuota} Kursi` : 'Penuh' }}
+                  </span>
+                </div>
+                <div class="room-opt-detail">
+                  <span>Gedung {{ room.gedung }} • Lantai {{ room.lantai }}</span>
+                  <span class="occupancy">Kapasitas {{ room.occupied || 0 }}/{{ room.kapasitas }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-cancel" @click="showModalGantiKamar = false">Batal</button>
+          <button 
+            class="btn-submit" 
+            :disabled="!selectedNewKamarId || submittingChange"
+            @click="submitGantiKamar"
+          >
+            {{ submittingChange ? 'Mengirim Pengajuan...' : 'Kirim Pengajuan Ganti Kamar' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -103,6 +175,13 @@ import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
 const loading = ref(true);
+const showModalGantiKamar = ref(false);
+const availableRooms = ref([]);
+const loadingRooms = ref(false);
+const selectedNewKamarId = ref(null);
+const submittingChange = ref(false);
+const changeSuccessMsg = ref('');
+const changeErrorMsg = ref('');
 
 const jenisKelamin = computed(() => {
   return authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
@@ -110,9 +189,12 @@ const jenisKelamin = computed(() => {
 
 const asramaData = ref({
   has_selected_room: false,
+  kamar_id: null,
   nomor_kamar: '',
   kapasitas: 4,
   current_occupancy: 0,
+  requested_kamar_id: null,
+  requested_nomor_kamar: null,
   status_persetujuan: 'approved',
   status_label: 'Disetujui oleh Staff Asrama',
   notes: '',
@@ -150,6 +232,71 @@ async function fetchAsramaInfo() {
     console.error('Failed to fetch asrama info:', e);
   } finally {
     loading.value = false;
+  }
+}
+
+async function openModalGantiKamar() {
+  showModalGantiKamar.value = true;
+  selectedNewKamarId.value = null;
+  changeErrorMsg.value = '';
+  changeSuccessMsg.value = '';
+  loadingRooms.value = true;
+
+  try {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch('/api/pendaftaran/kamar', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      availableRooms.value = data;
+    }
+  } catch (e) {
+    console.error('Failed to fetch available rooms:', e);
+  } finally {
+    loadingRooms.value = false;
+  }
+}
+
+function selectRoom(room) {
+  if (room.id === asramaData.value.kamar_id || room.sisa_kuota <= 0) return;
+  selectedNewKamarId.value = room.id;
+}
+
+async function submitGantiKamar() {
+  if (!selectedNewKamarId.value) return;
+  submittingChange.value = true;
+  changeErrorMsg.value = '';
+  changeSuccessMsg.value = '';
+
+  try {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch('/api/asrama/ganti-kamar', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ kamar_id: selectedNewKamarId.value }),
+    });
+    const data = await res.json();
+    if (res.ok && data.success) {
+      changeSuccessMsg.value = data.message || 'Permohonan ganti kamar berhasil dikirim!';
+      setTimeout(() => {
+        showModalGantiKamar.value = false;
+        fetchAsramaInfo();
+      }, 1200);
+    } else {
+      changeErrorMsg.value = data.message || 'Gagal mengajukan ganti kamar.';
+    }
+  } catch (e) {
+    changeErrorMsg.value = 'Terjadi kesalahan sistem.';
+  } finally {
+    submittingChange.value = false;
   }
 }
 
@@ -456,5 +603,249 @@ onMounted(() => {
   font-weight: 700;
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
+}
+
+.pending-change-item {
+  background: #fffbe6;
+  padding: 0.4rem 0.6rem;
+  border-radius: 8px;
+  border: 1px dashed #ffe58f;
+}
+
+.change-target {
+  color: #d46b08;
+  font-weight: 700;
+}
+
+/* Modal Styles */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+  padding: 1rem;
+}
+
+.modal-card {
+  background: #ffffff;
+  width: 100%;
+  max-width: 580px;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalFadeIn 0.25s ease-out;
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.modal-header {
+  padding: 1.5rem 1.75rem;
+  border-bottom: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.modal-header h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #0f1e3c;
+  margin: 0;
+}
+
+.modal-sub {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0.25rem 0 0;
+}
+
+.btn-close {
+  background: transparent;
+  border: none;
+  font-size: 1.25rem;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 6px;
+}
+
+.btn-close:hover {
+  color: #1e293b;
+  background: #f1f5f9;
+}
+
+.modal-body {
+  padding: 1.5rem 1.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.current-room-info {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.9rem;
+  color: #334155;
+}
+
+.form-label {
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.6rem;
+  display: block;
+}
+
+.rooms-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.room-option-card {
+  border: 2px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: #ffffff;
+}
+
+.room-option-card:hover:not(.disabled) {
+  border-color: #93c5fd;
+  background: #f0f7ff;
+}
+
+.room-option-card.selected {
+  border-color: #2563eb;
+  background: #eff6ff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.room-option-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: #f8fafc;
+}
+
+.room-opt-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.room-opt-name {
+  font-weight: 700;
+  color: #0f1e3c;
+  font-size: 1rem;
+}
+
+.kuota-badge {
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+}
+
+.kuota-badge.available {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.kuota-badge.full {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.room-opt-detail {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.4rem;
+  font-size: 0.825rem;
+  color: #64748b;
+}
+
+.modal-footer {
+  padding: 1.25rem 1.75rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  background: #f8fafc;
+}
+
+.btn-cancel {
+  background: #e2e8f0;
+  color: #475569;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  border-radius: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-cancel:hover {
+  background: #cbd5e1;
+}
+
+.btn-submit {
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 0.65rem 1.5rem;
+  border-radius: 10px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-submit:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.btn-submit:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}
+
+.alert {
+  padding: 0.75rem 1rem;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.alert-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.alert-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
 }
 </style>

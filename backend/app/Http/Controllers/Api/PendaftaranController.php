@@ -466,7 +466,7 @@ class PendaftaranController extends Controller
         }
 
         $roomSelection = PendaftaranRoomSelection::where('user_id', $user->id)
-            ->with('kamar')
+            ->with(['kamar', 'requestedKamar'])
             ->first();
 
         if (!$roomSelection || !$roomSelection->kamar) {
@@ -477,6 +477,7 @@ class PendaftaranController extends Controller
         }
 
         $kamar = $roomSelection->kamar;
+        $requestedKamar = $roomSelection->requestedKamar;
 
         $roommates = PendaftaranRoomSelection::where('pendaftaran_kamar_id', $kamar->id)
             ->with('user')
@@ -491,8 +492,10 @@ class PendaftaranController extends Controller
 
         $statusLabel = match ($statusPersetujuan) {
             'approved' => 'Disetujui oleh Staff Asrama',
-            'rejected' => 'Ditolak / Perlu Memilih Kamar Lain',
-            default => 'Menunggu Persetujuan Staff Asrama',
+            'rejected' => 'Pengajuan Kamar Ditolak / Perlu Memilih Kamar Lain',
+            default => $requestedKamar
+                ? "Menunggu Persetujuan Staff Asrama (Pengajuan Ganti ke Kamar {$requestedKamar->nomor_kamar})"
+                : 'Menunggu Persetujuan Staff Asrama',
         };
 
         return response()->json([
@@ -501,6 +504,8 @@ class PendaftaranController extends Controller
             'nomor_kamar' => $kamar->nomor_kamar,
             'kapasitas' => $kamar->kapasitas,
             'current_occupancy' => $kamar->current_occupancy,
+            'has_pending_request' => (bool) $requestedKamar,
+            'requested_nomor_kamar' => $requestedKamar?->nomor_kamar,
             'status_persetujuan' => $statusPersetujuan,
             'status_label' => $statusLabel,
             'approved_at' => $roomSelection->approved_at ? \Illuminate\Support\Carbon::parse($roomSelection->approved_at)->format('d M Y H:i') : null,
@@ -510,30 +515,139 @@ class PendaftaranController extends Controller
     }
 
     /**
-     * POST /api/staff/asrama/approve — Staff asrama menyetujui atau menolak pendaftaran kamar murid.
+     * POST /api/asrama/ganti-kamar — Siswa mengajukan ganti kamar (menunggu persetujuan Staff Asrama).
+     */
+    public function gantiKamar(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $validated = $request->validate([
+            'nomor_kamar' => 'nullable|string',
+            'kamar_id' => 'nullable|exists:pendaftaran_kamar,id',
+        ]);
+
+        if (empty($validated['nomor_kamar']) && empty($validated['kamar_id'])) {
+            return response()->json(['message' => 'Silakan pilih kamar yang valid.'], 422);
+        }
+
+        if (!empty($validated['kamar_id'])) {
+            $targetKamar = PendaftaranKamar::find($validated['kamar_id']);
+            $targetNomor = $targetKamar->nomor_kamar;
+        } else {
+            $targetNomor = strtoupper(trim($validated['nomor_kamar']));
+            $targetKamar = PendaftaranKamar::firstOrCreate(
+                ['nomor_kamar' => $targetNomor],
+                ['kapasitas' => 4, 'current_occupancy' => 0]
+            );
+        }
+
+        if ($targetKamar->current_occupancy >= $targetKamar->kapasitas) {
+            return response()->json(['message' => "Kamar {$targetNomor} sudah penuh. Silakan pilih nomor kamar lain."], 422);
+        }
+
+        $selection = PendaftaranRoomSelection::where('user_id', $user->id)->first();
+
+        if (!$selection) {
+            $selection = PendaftaranRoomSelection::create([
+                'user_id' => $user->id,
+                'pendaftaran_kamar_id' => $targetKamar->id,
+                'status' => 'pending',
+                'notes' => "Pengajuan pendaftaran Kamar {$targetNomor} dikirim. Menunggu persetujuan Staff Asrama.",
+            ]);
+        } else {
+            if ($selection->pendaftaran_kamar_id === $targetKamar->id) {
+                return response()->json(['message' => "Anda saat ini sudah terdaftar di Kamar {$targetNomor}."], 422);
+            }
+
+            $currentKamar = PendaftaranKamar::find($selection->pendaftaran_kamar_id);
+            $currentNomor = $currentKamar?->nomor_kamar ?? '-';
+
+            $selection->update([
+                'requested_kamar_id' => $targetKamar->id,
+                'status' => 'pending',
+                'notes' => "Mengajukan pergantian dari Kamar {$currentNomor} ke Kamar {$targetNomor}. Menunggu persetujuan Staff Asrama.",
+            ]);
+        }
+
+        return response()->json([
+            'message' => "Pengajuan pergantian kamar ke Kamar {$targetNomor} berhasil dikirim. Harap menunggu verifikasi persetujuan dari Staff Asrama.",
+            'data' => [
+                'current_room' => $selection->kamar?->nomor_kamar,
+                'requested_room' => $targetKamar->nomor_kamar,
+                'status' => 'pending',
+            ],
+        ]);
+    }
+
+    /**
+     * POST /api/staff/asrama/approve — Staff asrama menyetujui atau menolak pendaftaran/ganti kamar murid.
      */
     public function staffApproveAsrama(Request $request): JsonResponse
     {
         $request->validate([
-            'user_id' => 'required|exists:users,id',
-            'status' => 'required|in:approved,rejected,pending',
+            'selection_id' => 'nullable|exists:pendaftaran_room_selections,id',
+            'user_id' => 'nullable|exists:users,id',
+            'status' => 'nullable|in:approved,rejected,pending',
+            'action' => 'nullable|in:approve,reject,pending',
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $roomSelection = PendaftaranRoomSelection::where('user_id', $request->input('user_id'))->first();
-        if (!$roomSelection) {
+        $selection = null;
+        if ($request->filled('selection_id')) {
+            $selection = PendaftaranRoomSelection::find($request->input('selection_id'));
+        } elseif ($request->filled('user_id')) {
+            $selection = PendaftaranRoomSelection::where('user_id', $request->input('user_id'))->first();
+        }
+
+        if (!$selection) {
             return response()->json(['message' => 'Pendaftaran kamar tidak ditemukan.'], 404);
         }
 
-        $roomSelection->update([
-            'status' => $request->input('status'),
-            'approved_at' => $request->input('status') === 'approved' ? now() : null,
-            'notes' => $request->input('notes') ?: ($request->input('status') === 'approved' ? 'Disetujui oleh Staff Asrama.' : 'Pendaftaran kamar ditolak.'),
-        ]);
+        $actionInput = $request->input('action');
+        $statusInput = $request->input('status');
+        
+        $newStatus = $statusInput;
+        if (!$newStatus && $actionInput) {
+            $newStatus = $actionInput === 'approve' ? 'approved' : ($actionInput === 'reject' ? 'rejected' : 'pending');
+        }
+        if (!$newStatus) {
+            $newStatus = 'approved';
+        }
+        $notesInput = $request->input('notes');
+
+        if ($newStatus === 'approved') {
+            // Jika ada pengajuan ganti kamar
+            if ($selection->requested_kamar_id) {
+                // Kurangi occupancy kamar lama
+                PendaftaranKamar::where('id', $selection->pendaftaran_kamar_id)->decrement('current_occupancy');
+
+                // Pindahkan ke kamar baru & tambah occupancy
+                $selection->pendaftaran_kamar_id = $selection->requested_kamar_id;
+                $selection->requested_kamar_id = null;
+                PendaftaranKamar::where('id', $selection->pendaftaran_kamar_id)->increment('current_occupancy');
+            }
+
+            $selection->status = 'approved';
+            $selection->approved_at = now();
+            $selection->notes = $notesInput ?: 'Pengajuan pergantian kamar telah disetujui oleh Staff Asrama.';
+            $selection->save();
+        } else if ($newStatus === 'rejected') {
+            $selection->requested_kamar_id = null;
+            $selection->status = 'rejected';
+            $selection->notes = $notesInput ?: 'Pengajuan pergantian kamar ditolak oleh Staff Asrama.';
+            $selection->save();
+        } else {
+            $selection->status = 'pending';
+            $selection->notes = $notesInput ?: 'Pengajuan dalam proses verifikasi Staff Asrama.';
+            $selection->save();
+        }
 
         return response()->json([
-            'message' => 'Status pendaftaran kamar berhasil diperbarui.',
-            'data' => $roomSelection,
+            'message' => 'Status pendaftaran/pergantian kamar berhasil diperbarui.',
+            'data' => $selection,
         ]);
     }
 }
