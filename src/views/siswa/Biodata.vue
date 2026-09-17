@@ -10,8 +10,13 @@
       <PageCard :jenis-kelamin="jenisKelamin" class="card-biodata">
         <template #header>Biodata</template>
         <div class="profile-section">
-          <div class="avatar" :class="themeClass">
-            <span class="avatar-inner">{{ initialName }}</span>
+          <div class="avatar-container">
+            <img v-if="userAvatar" :src="`http://localhost:8000/storage/${userAvatar}`" class="avatar-img" alt="Avatar" />
+            <div v-else class="avatar" :class="themeClass">
+              <span class="avatar-inner">{{ initialName }}</span>
+            </div>
+            <input type="file" ref="fileInput" @change="onFileChange" accept="image/*" style="display: none" />
+            <button type="button" class="btn-upload" @click="triggerUpload">Ubah Foto Profil</button>
           </div>
           <div class="profile-info">
             <h3 class="profile-name">{{ biodata.nama }} ({{ biodata.nis || '—' }})</h3>
@@ -19,20 +24,8 @@
         </div>
         <dl class="data-list">
           <div class="data-row">
-            <dt>Nomor Induk / NIS</dt>
-            <dd>{{ biodata.nis || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Kelas / Program</dt>
-            <dd>{{ biodata.kelas || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Status</dt>
-            <dd>{{ biodata.status || 'Siswa Aktif' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Jenis Kelamin</dt>
-            <dd>{{ biodata.jenisKelamin === 'perempuan' ? 'Perempuan' : 'Laki-laki' }}</dd>
+            <dt>Nama</dt>
+            <dd>{{ biodata.nama || '—' }}</dd>
           </div>
           <div class="data-row">
             <dt>Tempat, Tanggal Lahir</dt>
@@ -43,28 +36,8 @@
             <dd>{{ biodata.email || '—' }}</dd>
           </div>
           <div class="data-row">
-            <dt>Nomor Telepon</dt>
-            <dd>{{ biodata.telepon || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Agama</dt>
-            <dd>{{ biodata.agama || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Golongan Darah</dt>
-            <dd>{{ biodata.golonganDarah || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Kewarganegaraan</dt>
-            <dd>{{ biodata.kewarganegaraan || 'WNI' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Alamat</dt>
-            <dd>{{ biodata.alamat || '—' }}</dd>
-          </div>
-          <div class="data-row">
-            <dt>Kota / Kabupaten</dt>
-            <dd>{{ biodata.kota || '—' }}</dd>
+            <dt>Kelas / Program</dt>
+            <dd>{{ biodata.kelas || '—' }}</dd>
           </div>
         </dl>
       </PageCard>
@@ -133,12 +106,15 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import PageCard from '@/components/PageCard.vue';
+import { request } from '@/api/auth';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 
 const orangTuaOpen = ref(true);
 const waliOpen = ref(true);
+const fileInput = ref(null);
+const userAvatar = ref('');
 
 const biodata = ref({
   nama: '',
@@ -204,9 +180,36 @@ onMounted(() => {
       biodata.value.nama = u.name || u.nama || '';
       biodata.value.email = u.email || '';
       biodata.value.jenisKelamin = u.jenis_kelamin || props.jenisKelamin;
+      userAvatar.value = u.avatar || '';
     }
   } catch (_) {}
 });
+
+function triggerUpload() {
+  fileInput.value.click();
+}
+
+async function onFileChange(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const formData = new FormData();
+  formData.append('avatar', file);
+  try {
+    const res = await request('/user/update-profile-photo', {
+      method: 'POST',
+      body: formData,
+    });
+    if (res.avatar) {
+      const u = JSON.parse(localStorage.getItem('user'));
+      u.avatar = res.avatar;
+      localStorage.setItem('user', JSON.stringify(u));
+      userAvatar.value = res.avatar;
+      window.location.reload(); // Optional: to refresh navbar avatar
+    }
+  } catch (err) {
+    alert('Gagal mengupload foto: ' + err.message);
+  }
+}
 </script>
 
 <style scoped>
@@ -279,9 +282,24 @@ onMounted(() => {
   border-bottom: 1px solid #f1f5f9;
 }
 
+.avatar-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.avatar-img {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid #e2e8f0;
+}
+
 .avatar {
-  width: 72px;
-  height: 72px;
+  width: 96px;
+  height: 96px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -298,10 +316,26 @@ onMounted(() => {
 }
 
 .avatar-inner {
-  font-size: 1.5rem;
+  font-size: 2rem;
   font-weight: 700;
   color: #fff;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.btn-upload {
+  padding: 0.4rem 0.75rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-weight: 600;
+}
+
+.btn-upload:hover {
+  background: #e2e8f0;
 }
 
 .profile-name {

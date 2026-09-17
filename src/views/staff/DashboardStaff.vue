@@ -120,9 +120,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const diningInputRef = ref(null);
 
 const diningNumber = ref('');
@@ -218,9 +219,8 @@ async function fetchTodayLogs() {
   }
 }
 
-function handleLogout() {
-  authApi.setToken(null);
-  localStorage.removeItem('user');
+async function handleLogout() {
+  await authStore.logout();
   router.push('/staff');
 }
 

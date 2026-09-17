@@ -33,13 +33,16 @@ function getApiCandidates() {
   return candidates;
 }
 
-async function request(url, options = {}) {
+export async function request(url, options = {}) {
   const headers = {
     "Content-Type": "application/json",
     Accept: "application/json",
     ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
     ...options.headers,
   };
+  if (options.body instanceof FormData) {
+    delete headers["Content-Type"];
+  }
   const apiCandidates = getApiCandidates();
   let res;
   let lastNetworkError = null;

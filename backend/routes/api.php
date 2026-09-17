@@ -37,6 +37,7 @@ Route::middleware('auth:sanctum')->group(function () {
         return $request->user();
     });
     Route::post('auth/logout', [AuthController::class, 'logout']);
+    Route::post('user/update-profile-photo', [AuthController::class, 'updateProfilePhoto']);
     Route::get('pendaftaran/status', [\App\Http\Controllers\Api\PendaftaranController::class, 'status']);
     Route::get('pendaftaran/dokumen', [\App\Http\Controllers\Api\PendaftaranController::class, 'dokumen']);
     Route::post('pendaftaran/kamar', [\App\Http\Controllers\Api\PendaftaranController::class, 'pilihKamar']);

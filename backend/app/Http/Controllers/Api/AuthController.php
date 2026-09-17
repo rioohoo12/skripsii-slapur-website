@@ -63,6 +63,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'jenis_kelamin' => $user->jenis_kelamin,
+                'avatar' => $user->avatar,
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -79,7 +80,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)
-            ->first(['id', 'name', 'email', 'password', 'role']);
+            ->first(['id', 'name', 'email', 'password', 'role', 'avatar']);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -104,6 +105,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'avatar' => $user->avatar,
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -120,7 +122,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)
-            ->first(['id', 'name', 'email', 'password', 'role', 'jenis_kelamin']);
+            ->first(['id', 'name', 'email', 'password', 'role', 'jenis_kelamin', 'avatar']);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -145,6 +147,7 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'jenis_kelamin' => $user->jenis_kelamin,
+                'avatar' => $user->avatar,
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -161,7 +164,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)
-            ->first(['id', 'name', 'email', 'password', 'role']);
+            ->first(['id', 'name', 'email', 'password', 'role', 'avatar']);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -186,6 +189,7 @@ class AuthController extends Controller
                 'name' => $user->name,
                 'email' => $user->email,
                 'role' => $user->role,
+                'avatar' => $user->avatar,
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -249,6 +253,7 @@ class AuthController extends Controller
                 'jenjang_guru' => $user->jenjang_guru,
                 'subject_smp_id' => $user->subject_smp_id,
                 'subject_sma_id' => $user->subject_sma_id,
+                'avatar' => $user->avatar,
             ],
         ], 201);
     }
@@ -324,5 +329,37 @@ class AuthController extends Controller
     {
         $request->user()->currentAccessToken()->delete();
         return response()->json(['message' => 'Logout berhasil']);
+    }
+
+    public function updateProfilePhoto(Request $request)
+    {
+        $request->validate([
+            'avatar' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ], [
+            'avatar.required' => 'File foto wajib diunggah.',
+            'avatar.image' => 'File harus berupa gambar.',
+            'avatar.mimes' => 'Format gambar harus jpeg, png, jpg, atau gif.',
+            'avatar.max' => 'Ukuran gambar maksimal 2MB.',
+        ]);
+
+        $user = $request->user();
+
+        if ($request->hasFile('avatar')) {
+            if ($user->avatar) {
+                \Illuminate\Support\Facades\Storage::disk('public')->delete($user->avatar);
+            }
+
+            $path = $request->file('avatar')->store('avatars', 'public');
+            
+            $user->avatar = $path;
+            $user->save();
+
+            return response()->json([
+                'message' => 'Foto profil berhasil diperbarui',
+                'avatar' => $path,
+            ]);
+        }
+
+        return response()->json(['message' => 'Gagal mengupload foto'], 400);
     }
 }

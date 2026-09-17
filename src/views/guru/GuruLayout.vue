@@ -44,10 +44,11 @@
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import GuruSidebar from '@/components/GuruSidebar.vue';
-import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const route = useRoute();
 const router = useRouter();
+const authStore = useAuthStore();
 const profileOpen = ref(false);
 
 const user = computed(() => {
@@ -83,10 +84,9 @@ const pageTitle = computed(() => {
   return map[name] || 'Dashboard';
 });
 
-function handleLogout() {
+async function handleLogout() {
   profileOpen.value = false;
-  authApi.setToken(null);
-  localStorage.removeItem('user');
+  await authStore.logout();
   router.push('/guru');
 }
 </script>

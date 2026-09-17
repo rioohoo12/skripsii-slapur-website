@@ -17,13 +17,13 @@
               <span class="profile-name">{{ namaSiswa }}</span>
               <span class="profile-role">{{ user.role || 'Siswa' }}</span>
             </div>
-            <img :src="`https://i.pravatar.cc/150?u=${user.email || 'dea'}`" alt="Avatar" class="profile-avatar" />
+            <img :src="user.avatar ? `http://localhost:8000/storage/${user.avatar}` : `https://i.pravatar.cc/150?u=${user.email || 'dea'}`" alt="Avatar" class="profile-avatar" />
             <span class="profile-chevron" :class="{ open: profileOpen }">▼</span>
           </div>
           
           <Transition name="dropdown">
             <div v-if="profileOpen" class="profile-dropdown">
-              <router-link to="#" class="dropdown-item">Profil / Biodata</router-link>
+              <router-link to="/siswa/biodata" class="dropdown-item">Profil / Biodata</router-link>
               <button type="button" class="dropdown-item logout" @click="handleLogout">
                 Logout
               </button>
@@ -43,8 +43,10 @@
 import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import SiswaSidebar from '@/components/SiswaSidebar.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const profileOpen = ref(false);
 
 const user = computed(() => {
@@ -57,10 +59,9 @@ const user = computed(() => {
 
 const namaSiswa = computed(() => user.value.name || 'Siswa');
 
-function handleLogout() {
+async function handleLogout() {
   profileOpen.value = false;
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
+  await authStore.logout();
   router.push('/siswa');
 }
 </script>

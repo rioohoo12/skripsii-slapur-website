@@ -19,9 +19,10 @@
 <script setup>
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const user = computed(() => {
   try {
     return JSON.parse(localStorage.getItem('user') || '{}');
@@ -30,9 +31,8 @@ const user = computed(() => {
   }
 });
 
-function handleLogout() {
-  authApi.setToken(null);
-  localStorage.removeItem('user');
+async function handleLogout() {
+  await authStore.logout();
   router.push('/guru');
 }
 </script>
