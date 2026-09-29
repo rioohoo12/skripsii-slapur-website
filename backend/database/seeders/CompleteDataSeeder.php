@@ -218,12 +218,12 @@ class CompleteDataSeeder extends Seeder
         DB::table('users')->updateOrInsert(
             ['email' => 'test.staff.asrama@sekolah.com'],
             [
-                'name' => 'Ibu Suhartini',
-                'email' => 'test.staff.asrama@sekolah.com',
-                'password' => Hash::make('password123'),
+                'name' => 'Staff Asrama',
+                'email' => 'asrama@gmail.com',
+                'password' => Hash::make('Slapur123'),
                 'role' => 'Staff Asrama',
                 'role_id' => $staffAsramaRole->id,
-                'jenis_kelamin' => 'P',
+                'jenis_kelamin' => 'L',
                 'is_verified' => true,
                 'email_verified_at' => now(),
                 'created_at' => now(),
@@ -241,6 +241,23 @@ class CompleteDataSeeder extends Seeder
                 'role' => 'Staff Kantin',
                 'role_id' => $staffKantinRole->id,
                 'jenis_kelamin' => 'L',
+                'is_verified' => true,
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        // Staff Kafetaria (Dining)
+        DB::table('users')->updateOrInsert(
+            ['email' => 'kafetaria@gmail.com'],
+            [
+                'name' => 'Staff Kafetaria',
+                'email' => 'kafetaria@gmail.com',
+                'password' => Hash::make('Kafetaria123'),
+                'role' => 'staff_kafetaria',
+                'role_id' => $staffKantinRole->id, // Fallback ke role ID staf kantin jika belum ada spesifik
+                'jenis_kelamin' => 'Laki-laki',
                 'is_verified' => true,
                 'email_verified_at' => now(),
                 'created_at' => now(),

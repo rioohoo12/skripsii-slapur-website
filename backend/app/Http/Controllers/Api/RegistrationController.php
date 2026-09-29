@@ -102,17 +102,18 @@ class RegistrationController extends Controller
     {
         $prefix = 'REG-' . date('Ym') . '-';
         
-        // Cari nomor terakhir bulan ini
-        $lastStudent = Student::where('nomor_pendaftaran', 'LIKE', $prefix . '%')
-            ->orderBy('nomor_pendaftaran', 'desc')
-            ->first();
+        // Dapatkan semua nomor pendaftaran bulan ini
+        $students = Student::where('nomor_pendaftaran', 'LIKE', $prefix . '%')->get();
+        $maxNumber = 0;
 
-        if ($lastStudent && $lastStudent->nomor_pendaftaran) {
-            $lastNumber = (int) str_replace($prefix, '', $lastStudent->nomor_pendaftaran);
-            $newNumber = $lastNumber + 1;
-        } else {
-            $newNumber = 1;
+        foreach ($students as $student) {
+            $num = (int) str_replace($prefix, '', $student->nomor_pendaftaran);
+            if ($num > $maxNumber) {
+                $maxNumber = $num;
+            }
         }
+
+        $newNumber = $maxNumber + 1;
 
         return $prefix . str_pad($newNumber, 4, '0', STR_PAD_LEFT);
     }

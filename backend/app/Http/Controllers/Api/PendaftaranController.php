@@ -296,16 +296,24 @@ class PendaftaranController extends Controller
                 'total_tagihan' => $total,
                 'nominal_60_percent' => $nominal60,
                 'nominal_dibayar' => $nominal60,
-                'status' => 'menunggu',
+                'status' => 'terverifikasi',
                 'bukti_path' => $path,
+                'verified_at' => now(), // Simulated AI Verification
             ]
         );
 
+        // Tandai bahwa pendaftaran telah dibayar
+        $student = \App\Models\Student::where('user_id', $user->id)->first();
+        if ($student) {
+            $student->update(['has_paid_registration' => true]);
+        }
+
         return response()->json([
-            'message' => 'Bukti pembayaran berhasil diupload. Menunggu verifikasi admin.',
+            'message' => 'Bukti pembayaran berhasil diupload dan telah diverifikasi secara otomatis oleh AI kami (24/7).',
             'payment' => [
                 'status' => $payment->status,
                 'bukti_path' => $payment->bukti_path,
+                'verified_at' => $payment->verified_at?->toIso8601String(),
             ],
         ]);
     }
@@ -414,9 +422,27 @@ class PendaftaranController extends Controller
             'nama_ayah' => 'required|string|max:255',
             'nama_ibu' => 'required|string|max:255',
             'pekerjaan_ayah' => 'required|string|max:255',
+            'pendidikan_ayah' => 'nullable|string|max:255',
+            'penghasilan_ayah' => 'nullable|string|max:255',
+            'no_telp_ayah' => 'nullable|string|max:50',
+            'agama_ayah' => 'nullable|string|max:255',
+            'kewarganegaraan_ayah' => 'nullable|string|max:255',
+
+            'nama_ibu' => 'required|string|max:255',
             'pekerjaan_ibu' => 'required|string|max:255',
-            'no_telp_ortu' => 'required|string|max:50',
+            'pendidikan_ibu' => 'nullable|string|max:255',
+            'penghasilan_ibu' => 'nullable|string|max:255',
+            'no_telp_ibu' => 'nullable|string|max:50',
+            'agama_ibu' => 'nullable|string|max:255',
+            'kewarganegaraan_ibu' => 'nullable|string|max:255',
+
+            'no_telp_ortu' => 'nullable|string|max:50',
             'kelas_yang_didaftar' => 'required|integer|in:7,8,9,10,11,12',
+
+            'agama' => 'nullable|string|max:255',
+            'golongan_darah' => 'nullable|string|max:10',
+            'kewarganegaraan' => 'nullable|string|max:255',
+            'no_telp' => 'nullable|string|max:50',
         ]);
 
         $student = \App\Models\Student::updateOrCreate(
@@ -427,13 +453,31 @@ class PendaftaranController extends Controller
                 'tempat_lahir' => $validated['tempat_lahir'],
                 'tanggal_lahir' => $validated['tanggal_lahir'],
                 'alamat' => $validated['alamat'],
+                'agama' => $validated['agama'] ?? null,
+                'golongan_darah' => $validated['golongan_darah'] ?? null,
+                'kewarganegaraan' => $validated['kewarganegaraan'] ?? 'WNI',
+                'no_telp' => $validated['no_telp'] ?? null,
+
                 'is_transfer_student' => $validated['is_transfer_student'] ?? false,
                 'previous_school_name' => $validated['previous_school_name'] ?? null,
+                
                 'nama_ayah' => $validated['nama_ayah'],
-                'nama_ibu' => $validated['nama_ibu'],
                 'pekerjaan_ayah' => $validated['pekerjaan_ayah'],
+                'pendidikan_ayah' => $validated['pendidikan_ayah'] ?? null,
+                'penghasilan_ayah' => $validated['penghasilan_ayah'] ?? null,
+                'no_telp_ayah' => $validated['no_telp_ayah'] ?? null,
+                'agama_ayah' => $validated['agama_ayah'] ?? null,
+                'kewarganegaraan_ayah' => $validated['kewarganegaraan_ayah'] ?? 'WNI',
+
+                'nama_ibu' => $validated['nama_ibu'],
                 'pekerjaan_ibu' => $validated['pekerjaan_ibu'],
-                'no_telp_ortu' => $validated['no_telp_ortu'],
+                'pendidikan_ibu' => $validated['pendidikan_ibu'] ?? null,
+                'penghasilan_ibu' => $validated['penghasilan_ibu'] ?? null,
+                'no_telp_ibu' => $validated['no_telp_ibu'] ?? null,
+                'agama_ibu' => $validated['agama_ibu'] ?? null,
+                'kewarganegaraan_ibu' => $validated['kewarganegaraan_ibu'] ?? 'WNI',
+
+                'no_telp_ortu' => $validated['no_telp_ortu'] ?? ($validated['no_telp_ayah'] ?? $validated['no_telp_ibu']),
                 'status_pendaftaran' => 'terdaftar',
             ]
         );
@@ -648,6 +692,31 @@ class PendaftaranController extends Controller
         return response()->json([
             'message' => 'Status pendaftaran/pergantian kamar berhasil diperbarui.',
             'data' => $selection,
+        ]);
+    }
+
+    /**
+     * GET /api/user/biodata — Get comprehensive biodata for the user.
+     */
+    public function biodata(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $student = \App\Models\Student::where('user_id', $user->id)->first();
+        $profile = PendaftaranProfile::where('user_id', $user->id)->first();
+
+        return response()->json([
+            'student' => $student,
+            'profile' => $profile,
+            'user' => [
+                'name' => $user->name,
+                'email' => $user->email,
+                'avatar' => $user->avatar,
+                'jenis_kelamin' => $user->jenis_kelamin,
+            ]
         ]);
     }
 }

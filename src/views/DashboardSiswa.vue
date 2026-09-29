@@ -23,7 +23,7 @@
           
           <Transition name="dropdown">
             <div v-if="profileOpen" class="profile-dropdown">
-              <router-link to="/siswa/biodata" class="dropdown-item">Profil / Biodata</router-link>
+              <router-link :to="`/siswa/${jenisKelamin}/biodata`" class="dropdown-item">Profil / Biodata</router-link>
               <button type="button" class="dropdown-item logout" @click="handleLogout">
                 Logout
               </button>
@@ -36,17 +36,26 @@
         <router-view />
       </div>
     </main>
+    <ChatWidget />
   </div>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import SiswaSidebar from '@/components/SiswaSidebar.vue';
+import ChatWidget from '@/components/ChatWidget.vue';
 import { useAuthStore } from '@/stores/auth';
+import { usePendaftaranStore } from '@/stores/pendaftaran';
+
+const props = defineProps({
+  jenisKelamin: { type: String, default: 'laki-laki' }
+});
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
+const pendaftaranStore = usePendaftaranStore();
 const profileOpen = ref(false);
 
 const user = computed(() => {
@@ -64,6 +73,28 @@ async function handleLogout() {
   await authStore.logout();
   router.push('/siswa');
 }
+
+function checkAccess(toPath) {
+  if (pendaftaranStore.loading || pendaftaranStore.isComplete) return;
+  
+  const isAllowedRoute = toPath.includes('/pendaftaran') || toPath.includes('/biodata') || toPath.includes('/clearance') || toPath.includes('/administrasi');
+  
+  if (!isAllowedRoute) {
+    alert('Anda harus menyelesaikan seluruh tahapan pendaftaran terlebih dahulu sebelum mengakses menu ini.');
+    router.push(`/siswa/${props.jenisKelamin}/pendaftaran/form`);
+  }
+}
+
+import { onMounted, watch } from 'vue';
+
+onMounted(async () => {
+  await pendaftaranStore.fetchStatus();
+  checkAccess(route.path);
+});
+
+watch(() => route.path, (newPath) => {
+  checkAccess(newPath);
+});
 </script>
 
 <style scoped>

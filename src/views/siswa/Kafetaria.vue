@@ -1,241 +1,268 @@
 <template>
-  <div class="kafetaria-page">
-    <h2 class="page-heading">Laporan Makan di Kafetaria</h2>
+  <div class="page-container">
+    <div class="page-header">
+      <h1 class="page-title">Layanan Kafetaria / Dining</h1>
+      <p class="page-subtitle">Lihat menu hari ini dan tunjukkan QR Code saat mengambil makanan</p>
+    </div>
 
-    <div class="kafetaria-layout">
-      <!-- Tabel laporan -->
-      <PageCard :jenis-kelamin="jenisKelamin" class="card-tabel">
-        <template #header>Laporan Makan</template>
-        <div class="table-wrap">
-          <table class="meal-table">
-            <thead>
-              <tr>
-                <th class="col-no">No.</th>
-                <th>Tanggal</th>
-                <th>Waktu</th>
-                <th>Jenis Makan</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="(row, i) in laporanMakan" :key="i">
-                <td class="col-no">{{ i + 1 }}</td>
-                <td>{{ row.tanggal }}</td>
-                <td>{{ row.waktu }}</td>
-                <td>{{ row.jenisMakan }}</td>
-              </tr>
-              <tr v-if="!laporanMakan.length" class="empty-row">
-                <td colspan="4">Belum ada data laporan makan</td>
-              </tr>
-            </tbody>
-          </table>
+    <div class="layout-grid">
+      <!-- QR Code Section -->
+      <div class="card qr-card">
+        <h3>Identitas Dining</h3>
+        
+        <div v-if="loading" class="text-center loading">
+          Memuat data...
         </div>
-      </PageCard>
-
-      <!-- Sidebar: filter + kartu ringkasan -->
-      <aside class="kafetaria-sidebar">
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-filter">
-          <template #header>Tahun Ajaran & Semester</template>
-          <div class="filter-body">
-            <select v-model="tahunSemester" class="select-semester">
-              <option value="2025/2026 - GENAP">2025/2026 - GENAP</option>
-              <option value="2025/2026 - GANJIL">2025/2026 - GANJIL</option>
-              <option value="2024/2025 - GENAP">2024/2025 - GENAP</option>
-            </select>
+        <div v-else-if="!diningNumber" class="text-center empty">
+          Anda belum memiliki akses layanan dining.
+        </div>
+        <div v-else class="qr-container">
+          <div class="qr-box">
+            <qrcode-vue :value="diningNumber" :size="200" level="M" />
           </div>
-        </PageCard>
-
-        <div class="summary-cards">
-          <div class="summary-card" :class="themeClass">
-            <div class="summary-icon">🍽️</div>
-            <div class="summary-text">
-              <span class="summary-value">{{ nomorKartuMakan || '—' }}</span>
-              <span class="summary-label">Nomor Kartu Makan</span>
-            </div>
+          
+          <div class="student-info">
+            <h4>{{ studentName }}</h4>
+            <p class="dining-id">ID: {{ diningNumber }}</p>
           </div>
-          <div class="summary-card" :class="themeClass">
-            <div class="summary-icon">📋</div>
-            <div class="summary-text">
-              <span class="summary-value">{{ jumlahMakan }}</span>
-              <span class="summary-label">Jumlah Makan</span>
-            </div>
+          
+          <div class="instructions">
+            <p>Tunjukkan QR Code ini kepada Staff Kafetaria saat mengambil jatah makan Anda.</p>
           </div>
         </div>
-      </aside>
+      </div>
+
+      <!-- Menu Section -->
+      <div class="card menu-card">
+        <h3>Menu Hari Ini <span>({{ todayFormatted }})</span></h3>
+        
+        <div v-if="loading" class="text-center loading">
+          Memuat menu...
+        </div>
+        <div v-else-if="menus.length === 0" class="text-center empty">
+          Tidak ada data menu untuk hari ini.
+        </div>
+        <div v-else class="menu-list">
+          <div 
+            v-for="menu in menus" 
+            :key="menu.id" 
+            class="menu-item"
+            :class="{ 'consumed': isConsumed(menu.meal_time) }"
+          >
+            <div class="menu-header">
+              <div class="menu-time">
+                <span class="time-dot" :class="menu.meal_time.toLowerCase()"></span>
+                {{ menu.meal_time }}
+              </div>
+              <span class="status-badge" v-if="isConsumed(menu.meal_time)">
+                ✅ Sudah Diambil
+              </span>
+              <span class="status-badge pending" v-else>
+                ⏳ Belum Diambil
+              </span>
+            </div>
+            <div class="menu-details">
+              {{ menu.menu_details }}
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
-import PageCard from '@/components/PageCard.vue';
+import { ref, onMounted } from 'vue';
+import { request } from '@/api/auth';
+import QrcodeVue from 'qrcode.vue';
 
-const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
-const themeClass = computed(() => 'theme-' + props.jenisKelamin);
+const menus = ref([]);
+const consumed = ref([]);
+const diningNumber = ref('');
+const studentName = ref('');
+const loading = ref(true);
 
-const tahunSemester = ref('2025/2026 - GENAP');
-// Data kosong – gambaran tampilan saja, isi dari API nanti
-const laporanMakan = ref([]);
-const nomorKartuMakan = ref('');
-const jumlahMakan = computed(() => laporanMakan.value.length);
+const todayFormatted = new Date().toLocaleDateString('id-ID', {
+  weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+});
+
+function isConsumed(mealTime) {
+  return consumed.value.includes(mealTime);
+}
+
+async function fetchData() {
+  loading.value = true;
+  try {
+    const res = await request('/kafetaria/today');
+    menus.value = res.menus || [];
+    consumed.value = res.consumed || [];
+    diningNumber.value = res.dining_number || '';
+    studentName.value = res.student_name || '';
+  } catch (error) {
+    console.error('Failed to fetch kafetaria data', error);
+  } finally {
+    loading.value = false;
+  }
+}
+
+onMounted(() => {
+  fetchData();
+});
 </script>
 
 <style scoped>
-.kafetaria-page {
+.page-container {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.page-heading {
+.page-header {
+  margin-bottom: 1rem;
+}
+
+.page-title {
   font-size: 1.25rem;
   font-weight: 700;
   color: #1e293b;
+  margin: 0 0 0.5rem 0;
+}
+
+.page-subtitle {
+  color: #64748b;
   margin: 0;
 }
 
-.kafetaria-layout {
+.layout-grid {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 2fr;
   gap: 1.5rem;
   align-items: start;
 }
 
-@media (max-width: 900px) {
-  .kafetaria-layout {
-    grid-template-columns: 1fr;
-  }
-}
-
-.card-tabel :deep(.page-card-body) {
-  padding: 0;
-}
-
-.table-wrap {
-  overflow-x: auto;
-}
-
-.meal-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.9rem;
-}
-
-.meal-table th,
-.meal-table td {
-  padding: 0.85rem 1rem;
-  text-align: left;
-  border-bottom: 1px solid #f1f5f9;
-}
-
-.meal-table th {
-  font-weight: 600;
-  color: #64748b;
-  background: #f8fafc;
-}
-
-.meal-table .col-no {
-  width: 4rem;
-  text-align: center;
-}
-
-.meal-table tbody tr:hover {
-  background: #fafafa;
-}
-
-.meal-table .empty-row td {
-  text-align: center;
-  color: #94a3b8;
-  font-size: 0.9rem;
-  padding: 2rem 1rem;
-}
-
-.kafetaria-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.card-filter :deep(.page-card-body) {
-  padding: 1.25rem;
-}
-
-.select-semester {
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  color: #1e293b;
-  background: #fff;
-  cursor: pointer;
-}
-
-.select-semester:focus {
-  outline: none;
-  border-color: #0f766e;
-}
-
-.theme-perempuan .select-semester:focus {
-  border-color: #7c3aed;
-}
-
-.summary-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.summary-card {
-  padding: 1.25rem;
+.card {
+  background: white;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
-  background: #fff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  padding: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.card h3 {
+  margin: 0 0 1.5rem 0;
+  color: #1e293b;
+  font-size: 1.25rem;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  transition: box-shadow 0.2s;
+  gap: 0.5rem;
 }
+.card h3 span { font-size: 0.9rem; color: #64748b; font-weight: normal; }
 
-.summary-card:hover {
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
-}
-
-.summary-card.theme-laki-laki {
-  border-left: 4px solid #0f766e;
-}
-
-.summary-card.theme-perempuan {
-  border-left: 4px solid #7c3aed;
-}
-
-.summary-icon {
-  font-size: 2rem;
-  width: 48px;
-  height: 48px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: #fef3c7;
-  border-radius: 12px;
-}
-
-.summary-text {
+.qr-container {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  align-items: center;
 }
 
-.summary-card .summary-value {
-  font-size: 1.5rem;
-  font-weight: 800;
+.qr-box {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 16px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+  margin-bottom: 1.5rem;
+}
+
+.student-info {
+  text-align: center;
+  margin-bottom: 1.5rem;
+}
+
+.student-info h4 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.25rem;
   color: #1e293b;
-  line-height: 1.2;
 }
 
-.summary-card .summary-label {
+.dining-id {
+  margin: 0;
+  color: #64748b;
+  font-family: monospace;
+  font-size: 1.1rem;
+}
+
+.instructions {
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: center;
+  color: #475569;
+  font-size: 0.9rem;
+  border: 1px solid #e2e8f0;
+}
+
+.menu-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.menu-item {
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  background: #f8fafc;
+  transition: all 0.2s;
+}
+
+.menu-item.consumed {
+  opacity: 0.7;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+.menu-item.consumed .menu-header { border-color: #bbf7d0; }
+
+.menu-time {
+  font-weight: 600;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.time-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.time-dot.pagi { background-color: #38bdf8; }
+.time-dot.siang { background-color: #fbbf24; }
+.time-dot.sore { background-color: #8b5cf6; }
+
+.status-badge {
   font-size: 0.8rem;
   font-weight: 600;
-  color: #64748b;
+  color: #15803d;
+}
+.status-badge.pending { color: #d97706; }
+
+.menu-details {
+  color: #475569;
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+.text-center { text-align: center; }
+.loading, .empty { padding: 2rem; color: #64748b; }
+
+@media (max-width: 900px) {
+  .layout-grid { grid-template-columns: 1fr; }
 }
 </style>

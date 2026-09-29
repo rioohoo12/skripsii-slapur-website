@@ -89,7 +89,7 @@ class AuthController extends Controller
         }
 
         $role = $user->role ?? 'siswa';
-        $allowed = ['staff', 'admin', 'super_admin'];
+        $allowed = ['staff', 'staff_asrama', 'staff_kafetaria', 'admin', 'super_admin'];
         if (!in_array($role, $allowed)) {
             throw ValidationException::withMessages([
                 'email' => ['Akun ini bukan akun staff. Gunakan login siswa atau login guru.'],

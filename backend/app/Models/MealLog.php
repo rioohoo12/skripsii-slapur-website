@@ -12,7 +12,6 @@ class MealLog extends Model
 
     protected $fillable = [
         'student_id',
-        'menu_id',
         'date_consumed',
         'meal_time',
         'eating_number',
@@ -29,8 +28,4 @@ class MealLog extends Model
         return $this->belongsTo(Student::class, 'student_id');
     }
 
-    public function menu(): BelongsTo
-    {
-        return $this->belongsTo(CafeteriaMenu::class, 'menu_id');
-    }
 }

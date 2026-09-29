@@ -13,6 +13,8 @@ class PendaftaranKamar extends Model
         'nomor_kamar',
         'kapasitas',
         'current_occupancy',
+        'status_kondisi',
+        'catatan_fasilitas',
     ];
 
     public function selections(): HasMany

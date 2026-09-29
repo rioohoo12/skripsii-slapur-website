@@ -32,12 +32,28 @@
             <dd>{{ biodata.tempatLahir || '—' }}, {{ biodata.tanggalLahir || '—' }}</dd>
           </div>
           <div class="data-row">
-            <dt>E-mail</dt>
+            <dt>E-mail Pribadi</dt>
             <dd>{{ biodata.email || '—' }}</dd>
           </div>
           <div class="data-row">
-            <dt>Kelas / Program</dt>
-            <dd>{{ biodata.kelas || '—' }}</dd>
+            <dt>Nomor Telepon</dt>
+            <dd>{{ biodata.telepon || '—' }}</dd>
+          </div>
+          <div class="data-row">
+            <dt>Agama</dt>
+            <dd>{{ biodata.agama || '—' }}</dd>
+          </div>
+          <div class="data-row">
+            <dt>Golongan Darah</dt>
+            <dd>{{ biodata.golonganDarah || '—' }}</dd>
+          </div>
+          <div class="data-row">
+            <dt>Kewarganegaraan</dt>
+            <dd>{{ biodata.kewarganegaraan || 'WNI' }}</dd>
+          </div>
+          <div class="data-row">
+            <dt>Alamat Rumah</dt>
+            <dd>{{ biodata.alamat || '—' }}</dd>
           </div>
         </dl>
       </PageCard>
@@ -59,7 +75,7 @@
               <div class="data-row"><dt>Pekerjaan</dt><dd>{{ orangTua.ayah.pekerjaan || '—' }}</dd></div>
               <div class="data-row"><dt>Penghasilan</dt><dd>{{ orangTua.ayah.penghasilan || '—' }}</dd></div>
               <div class="data-row"><dt>Nomor Telepon</dt><dd>{{ orangTua.ayah.telepon || '—' }}</dd></div>
-              <div class="data-row"><dt>Alamat</dt><dd>{{ orangTua.ayah.alamat || '—' }}</dd></div>
+              <div class="data-row"><dt>Agama</dt><dd>{{ orangTua.ayah.agama || '—' }}</dd></div>
               <div class="data-row"><dt>Kewarganegaraan</dt><dd>{{ orangTua.ayah.kewarganegaraan || 'WNI' }}</dd></div>
             </dl>
           </section>
@@ -71,7 +87,7 @@
               <div class="data-row"><dt>Pekerjaan</dt><dd>{{ orangTua.ibu.pekerjaan || '—' }}</dd></div>
               <div class="data-row"><dt>Penghasilan</dt><dd>{{ orangTua.ibu.penghasilan || '—' }}</dd></div>
               <div class="data-row"><dt>Nomor Telepon</dt><dd>{{ orangTua.ibu.telepon || '—' }}</dd></div>
-              <div class="data-row"><dt>Alamat</dt><dd>{{ orangTua.ibu.alamat || '—' }}</dd></div>
+              <div class="data-row"><dt>Agama</dt><dd>{{ orangTua.ibu.agama || '—' }}</dd></div>
               <div class="data-row"><dt>Kewarganegaraan</dt><dd>{{ orangTua.ibu.kewarganegaraan || 'WNI' }}</dd></div>
             </dl>
           </section>
@@ -140,7 +156,7 @@ const orangTua = ref({
     pekerjaan: '',
     penghasilan: '',
     telepon: '',
-    alamat: '',
+    agama: '',
     kewarganegaraan: 'WNI',
   },
   ibu: {
@@ -149,7 +165,7 @@ const orangTua = ref({
     pekerjaan: '',
     penghasilan: '',
     telepon: '',
-    alamat: '',
+    agama: '',
     kewarganegaraan: 'WNI',
   },
 });
@@ -172,7 +188,7 @@ const initialName = computed(() => {
   return n.slice(0, 2).toUpperCase();
 });
 
-onMounted(() => {
+onMounted(async () => {
   try {
     const user = localStorage.getItem('user');
     if (user) {
@@ -183,6 +199,52 @@ onMounted(() => {
       userAvatar.value = u.avatar || '';
     }
   } catch (_) {}
+
+  try {
+    const token = localStorage.getItem('auth_token');
+    const res = await fetch('/api/user/biodata', {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': 'application/json',
+      }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const s = data.student || {};
+      
+      biodata.value.nama = s.full_name || biodata.value.nama;
+      biodata.value.tempatLahir = s.tempat_lahir || '';
+      biodata.value.tanggalLahir = s.tanggal_lahir || '';
+      biodata.value.kelas = data.profile?.kelas_yang_didaftar || '';
+      biodata.value.agama = s.agama || '';
+      biodata.value.golonganDarah = s.golongan_darah || '';
+      biodata.value.kewarganegaraan = s.kewarganegaraan || 'WNI';
+      biodata.value.alamat = s.alamat || '';
+      biodata.value.telepon = s.no_telp || '';
+
+      orangTua.value.ayah = {
+        nama: s.nama_ayah || '',
+        pendidikan: s.pendidikan_ayah || '',
+        pekerjaan: s.pekerjaan_ayah || '',
+        penghasilan: s.penghasilan_ayah || '',
+        telepon: s.no_telp_ayah || s.no_telp_ortu || '',
+        agama: s.agama_ayah || '',
+        kewarganegaraan: s.kewarganegaraan_ayah || 'WNI',
+      };
+
+      orangTua.value.ibu = {
+        nama: s.nama_ibu || '',
+        pendidikan: s.pendidikan_ibu || '',
+        pekerjaan: s.pekerjaan_ibu || '',
+        penghasilan: s.penghasilan_ibu || '',
+        telepon: s.no_telp_ibu || s.no_telp_ortu || '',
+        agama: s.agama_ibu || '',
+        kewarganegaraan: s.kewarganegaraan_ibu || 'WNI',
+      };
+    }
+  } catch (err) {
+    console.error('Failed to fetch biodata:', err);
+  }
 });
 
 function triggerUpload() {

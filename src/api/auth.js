@@ -9,7 +9,7 @@ function setToken(token) {
   else localStorage.removeItem("auth_token");
 }
 
-const REQUEST_TIMEOUT_MS = 12000; // 12 detik
+const REQUEST_TIMEOUT_MS = 30000; // 30 detik
 const FALLBACK_API_BASES = [
   "http://127.0.0.1:8000/api",
   "http://localhost:8000/api",
@@ -47,22 +47,18 @@ export async function request(url, options = {}) {
   let res;
   let lastNetworkError = null;
 
-  for (const base of apiCandidates) {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-    try {
-      res = await fetch(`${base}${url}`, {
-        ...options,
-        headers,
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-      break;
-    } catch (e) {
-      clearTimeout(timeoutId);
-      lastNetworkError = e;
-      continue;
-    }
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+  try {
+    res = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+  } catch (e) {
+    clearTimeout(timeoutId);
+    lastNetworkError = e;
   }
 
   if (!res) {

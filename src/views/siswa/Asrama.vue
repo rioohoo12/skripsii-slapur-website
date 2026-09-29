@@ -147,7 +147,7 @@
                 </div>
                 <div class="room-opt-detail">
                   <span>Gedung {{ room.gedung }} • Lantai {{ room.lantai }}</span>
-                  <span class="occupancy">Kapasitas {{ room.occupied || 0 }}/{{ room.kapasitas }}</span>
+                  <span class="occupancy">Kapasitas {{ room.current_occupancy || 0 }}/{{ room.kapasitas }}</span>
                 </div>
               </div>
             </div>
@@ -252,13 +252,42 @@ async function openModalGantiKamar() {
     });
     if (res.ok) {
       const data = await res.json();
-      availableRooms.value = data;
+      availableRooms.value = (data.kamar || []).map(k => ({
+        ...k,
+        sisa_kuota: k.kapasitas - k.current_occupancy,
+        gedung: getGedungName(k.nomor_kamar),
+        lantai: getLantaiName(k.nomor_kamar)
+      }));
     }
   } catch (e) {
     console.error('Failed to fetch available rooms:', e);
   } finally {
     loadingRooms.value = false;
   }
+}
+
+function getGedungName(nomor_kamar) {
+  if (!nomor_kamar) return 'Asrama';
+  const prefix = nomor_kamar.charAt(0).toUpperCase();
+  if (jenisKelamin.value === 'perempuan') {
+    if (prefix === 'A') return 'Krisan';
+    if (prefix === 'B') return 'Melati';
+    if (prefix === 'C') return 'Mawar';
+  } else {
+    if (prefix === 'A') return 'Anex';
+    if (prefix === 'B') return 'Cendrawasih';
+    if (prefix === 'C') return 'Hawk';
+  }
+  return 'Asrama ' + prefix;
+}
+
+function getLantaiName(nomor_kamar) {
+  if (!nomor_kamar || nomor_kamar.length < 2) return 1;
+  const num = parseInt(nomor_kamar.substring(1), 10);
+  if (isNaN(num)) return 1;
+  if (num <= 3) return 1;
+  if (num <= 6) return 2;
+  return 3;
 }
 
 function selectRoom(room) {

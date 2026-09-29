@@ -10,6 +10,10 @@ use App\Models\Student;
 use Midtrans\Config;
 use Midtrans\Snap;
 use Illuminate\Support\Facades\Log;
+use App\Models\PendaftaranPayment;
+use App\Models\Invoice;
+use App\Mail\PaymentReceiptMail;
+use Illuminate\Support\Facades\Mail;
 
 class PaymentController extends Controller
 {
@@ -120,26 +124,84 @@ class PaymentController extends Controller
         $paymentType = $payload['payment_type'] ?? '';
 
         // Update transaction status
-        $payment->transaction_status = $transactionStatus;
-        $payment->payment_method = $paymentType;
-        $payment->midtrans_transaction_data = $payload;
+        $payment->midtrans_transaction_id = $payload['transaction_id'] ?? null;
+        
+        $invoice = Invoice::find($payment->invoice_id);
 
         if ($transactionStatus == 'settlement' || $transactionStatus == 'capture') {
             $payment->payment_status = 'terverifikasi';
-            $payment->paid_at = now();
             $payment->verified_at = now();
             
-            // Update student
-            if ($payment->student) {
-                $payment->student->has_paid_registration = true;
-                $payment->student->save();
+            if ($invoice) {
+                $invoice->update(['status' => 'paid']);
+                if ($invoice->applicant) {
+                    $invoice->applicant->update(['status' => 'verified']);
+                    // Kirim Email
+                    if ($invoice->applicant->email) {
+                        try {
+                            Mail::to($invoice->applicant->email)->send(new PaymentReceiptMail($payment, $invoice));
+                        } catch (\Exception $e) {
+                            Log::error('Failed to send email: ' . $e->getMessage());
+                        }
+                    }
+                }
             }
         } elseif ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
             $payment->payment_status = 'batal';
+            if ($invoice) {
+                $invoice->update(['status' => 'expired']);
+            }
+        } elseif ($transactionStatus == 'pending') {
+            $payment->payment_status = 'menunggu';
         }
 
         $payment->save();
 
-        return response()->json(['message' => 'Webhook received']);
+        return response()->json(['message' => 'Webhook processed successfully']);
+    }
+
+    /**
+     * GET /api/staff/payments - Get all pending payments
+     */
+    public function getPendingPayments(Request $request): JsonResponse
+    {
+        $payments = PendaftaranPayment::with('user.student')
+            ->orderBy('created_at', 'desc')
+            ->get();
+            
+        return response()->json(['data' => $payments]);
+    }
+
+    /**
+     * POST /api/staff/payments/{id}/verify - Verify or reject a payment
+     */
+    public function verifyPayment(Request $request, $id): JsonResponse
+    {
+        $request->validate([
+            'status' => 'required|in:terverifikasi,ditolak'
+        ]);
+
+        $payment = PendaftaranPayment::findOrFail($id);
+        $payment->status = $request->status;
+        if ($request->status === 'terverifikasi') {
+            $payment->verified_at = now();
+            
+            // Assign dining number 
+            $student = Student::where('user_id', $payment->user_id)->first();
+            if ($student) {
+                $student->has_paid_registration = true;
+                if (empty($student->dining_number) && !empty($student->nomor_pendaftaran)) {
+                    $parts = explode('-', $student->nomor_pendaftaran);
+                    $lastPart = end($parts);
+                    if (is_numeric($lastPart)) {
+                        $student->dining_number = (string)(int)$lastPart;
+                    }
+                }
+                $student->save();
+            }
+        }
+        $payment->save();
+
+        return response()->json(['message' => 'Payment status updated', 'data' => $payment]);
     }
 }

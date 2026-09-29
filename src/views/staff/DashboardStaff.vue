@@ -2,8 +2,8 @@
   <div class="staff-dashboard">
     <header class="staff-topbar">
       <div class="brand">
-        <span class="logo">🍽️</span>
-        <h1 class="staff-title">Dashboard Staff Dining</h1>
+        <span class="logo">🏢</span>
+        <h1 class="staff-title">Dashboard Staff</h1>
       </div>
       <div class="staff-user">
         <span class="staff-name">👤 {{ user?.name || 'Staff Dining' }}</span>
@@ -11,9 +11,16 @@
       </div>
     </header>
 
+    <div class="staff-tabs">
+      <button :class="['tab-btn', { active: activeTab === 'dining' }]" @click="activeTab = 'dining'">🍽️ Presensi Dining</button>
+      <button :class="['tab-btn', { active: activeTab === 'payment' }]" @click="activeTab = 'payment'">💰 Verifikasi Pembayaran</button>
+    </div>
+
     <main class="staff-content">
-      <!-- Input Card -->
-      <div class="dining-input-card">
+      <!-- Tab 1: Presensi Dining -->
+      <div v-show="activeTab === 'dining'" class="tab-pane">
+        <!-- Input Card -->
+        <div class="dining-input-card">
         <div class="card-header">
           <h2>Input Presensi Dining (Nomor Makan Siswa)</h2>
           <p>Ketik nomor urut makan siswa lalu tekan <strong>Enter</strong> atau klik <strong>Simpan Presensi</strong>.</p>
@@ -113,6 +120,56 @@
           </table>
         </div>
       </div>
+        </div>
+      </div>
+      
+      <!-- Tab 2: Verifikasi Pembayaran -->
+      <div v-show="activeTab === 'payment'" class="tab-pane">
+        <div class="today-logs-card">
+          <div class="table-header">
+            <div>
+              <h3>Daftar Menunggu Verifikasi Pembayaran</h3>
+              <p>Total antrean: <strong>{{ pendingPayments.length }}</strong></p>
+            </div>
+            <button class="refresh-btn" @click="fetchPendingPayments">🔄 Refresh</button>
+          </div>
+          
+          <div class="table-responsive">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>No</th>
+                  <th>Nama Siswa</th>
+                  <th>Total Tagihan</th>
+                  <th>Waktu Upload</th>
+                  <th>Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-if="loadingPayments">
+                  <td colspan="5" class="text-center py-3">Memuat data...</td>
+                </tr>
+                <tr v-else-if="pendingPayments.length === 0">
+                  <td colspan="5" class="empty-state">Tidak ada antrean verifikasi.</td>
+                </tr>
+                <tr v-else v-for="(pay, idx) in pendingPayments" :key="pay.id">
+                  <td>{{ idx + 1 }}</td>
+                  <td class="font-bold">{{ pay.user?.student?.full_name || pay.user?.name }}</td>
+                  <td>{{ formatRp(pay.total_tagihan) }}</td>
+                  <td class="time-col">{{ formatDate(pay.created_at) }}</td>
+                  <td>
+                    <div class="action-btns">
+                      <a :href="`/storage/${pay.bukti_path}`" target="_blank" class="btn-sm btn-view">Lihat Bukti</a>
+                      <button @click="verifyPayment(pay.id, 'terverifikasi')" class="btn-sm btn-acc">✔ Terima</button>
+                      <button @click="verifyPayment(pay.id, 'ditolak')" class="btn-sm btn-rej">✖ Tolak</button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     </main>
   </div>
 </template>
@@ -122,9 +179,15 @@ import { ref, computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
+import { paymentApi } from '@/api/payment';
+
 const router = useRouter();
 const authStore = useAuthStore();
 const diningInputRef = ref(null);
+
+const activeTab = ref('dining');
+const pendingPayments = ref([]);
+const loadingPayments = ref(false);
 
 const diningNumber = ref('');
 const mealTime = ref(autoDetectMealTime());
@@ -224,8 +287,41 @@ async function handleLogout() {
   router.push('/staff');
 }
 
+async function fetchPendingPayments() {
+  loadingPayments.value = true;
+  try {
+    const res = await paymentApi.getPendingPayments();
+    pendingPayments.value = res.data.filter(p => p.status === 'menunggu' || p.status === 'pending');
+  } catch (e) {
+    console.error('Gagal memuat pembayaran', e);
+  } finally {
+    loadingPayments.value = false;
+  }
+}
+
+async function verifyPayment(id, status) {
+  if (!confirm(`Apakah Anda yakin ingin ${status === 'terverifikasi' ? 'menerima' : 'menolak'} pembayaran ini?`)) return;
+  try {
+    await paymentApi.verifyPayment(id, status);
+    alert('Berhasil!');
+    fetchPendingPayments();
+  } catch (e) {
+    alert(e.message || 'Gagal mengubah status');
+  }
+}
+
+function formatRp(n) {
+  return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
+}
+
+function formatDate(iso) {
+  if (!iso) return '-';
+  return new Date(iso).toLocaleString('id-ID');
+}
+
 onMounted(() => {
   fetchTodayLogs();
+  fetchPendingPayments();
   if (diningInputRef.value) diningInputRef.value.focus();
 });
 </script>
@@ -246,6 +342,75 @@ onMounted(() => {
   padding: 1.25rem 2.5rem;
   background: #ffffff;
   border-bottom: 1px solid #e2e8f0;
+}
+
+.staff-tabs {
+  display: flex;
+  gap: 1rem;
+  padding: 0 2.5rem;
+  margin-top: 1.5rem;
+  max-width: 1200px;
+  width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.tab-btn {
+  padding: 0.75rem 1.5rem;
+  border: none;
+  background: #e2e8f0;
+  color: #475569;
+  font-weight: 600;
+  font-size: 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab-btn.active {
+  background: #0f766e;
+  color: white;
+  box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2);
+}
+
+.tab-btn:hover:not(.active) {
+  background: #cbd5e1;
+}
+
+.action-btns {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-sm {
+  padding: 0.35rem 0.65rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+}
+
+.btn-view {
+  background: #e0f2fe;
+  color: #0369a1;
+  border: 1px solid #bae6fd;
+}
+
+.btn-acc {
+  background: #dcfce7;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+.btn-rej {
+  background: #fee2e2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
 }
 
 .brand {

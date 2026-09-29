@@ -18,6 +18,14 @@ export const useAuthStore = defineStore('auth', {
     },
     isSiswa: (state) => {
       return state.user && state.user.role === 'siswa';
+    },
+    isAsramaStaff: (state) => {
+      const roles = ['staff_asrama', 'admin', 'super_admin'];
+      return state.user && roles.includes(state.user.role);
+    },
+    isKafetariaStaff: (state) => {
+      const roles = ['staff_kafetaria', 'admin', 'super_admin'];
+      return state.user && roles.includes(state.user.role);
     }
   },
   actions: {

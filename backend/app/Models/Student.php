@@ -36,6 +36,20 @@ class Student extends Model
         'status_pendaftaran',
         'dining_number',
         'dining_status',
+        'agama',
+        'golongan_darah',
+        'kewarganegaraan',
+        'no_telp',
+        'pendidikan_ayah',
+        'penghasilan_ayah',
+        'no_telp_ayah',
+        'agama_ayah',
+        'kewarganegaraan_ayah',
+        'pendidikan_ibu',
+        'penghasilan_ibu',
+        'no_telp_ibu',
+        'agama_ibu',
+        'kewarganegaraan_ibu',
     ];
 
     protected $casts = [

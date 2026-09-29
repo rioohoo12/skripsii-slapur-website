@@ -35,9 +35,23 @@ async function request(url, options = {}) {
 }
 
 export const paymentApi = {
-  async createTransaction() {
-    return request('/v1/payments', {
+  createTransaction: async () => {
+    return await request('/v1/payments', {
       method: 'POST',
     });
   },
+
+  // Baru: API untuk Staff
+  getPendingPayments: async () => {
+    return await request('/staff/payments', {
+      method: 'GET',
+    });
+  },
+
+  verifyPayment: async (id, status) => {
+    return await request(`/staff/payments/${id}/verify`, {
+      method: 'POST',
+      body: JSON.stringify({ status })
+    });
+  }
 };

@@ -48,6 +48,29 @@
             <label for="tanggal_lahir">Tanggal Lahir *</label>
             <input id="tanggal_lahir" v-model="form.tanggal_lahir" type="date" required />
           </div>
+          <div class="form-group">
+            <label for="agama">Agama *</label>
+            <input id="agama" v-model="form.agama" type="text" required />
+          </div>
+          <div class="form-group">
+            <label for="golongan_darah">Golongan Darah</label>
+            <select id="golongan_darah" v-model="form.golongan_darah">
+              <option value="">Pilih</option>
+              <option value="A">A</option>
+              <option value="B">B</option>
+              <option value="AB">AB</option>
+              <option value="O">O</option>
+              <option value="Tidak Tahu">Tidak Tahu</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="kewarganegaraan">Kewarganegaraan *</label>
+            <input id="kewarganegaraan" v-model="form.kewarganegaraan" type="text" required />
+          </div>
+          <div class="form-group">
+            <label for="no_telp">Nomor Telepon Pribadi</label>
+            <input id="no_telp" v-model="form.no_telp" type="tel" placeholder="08xxxxxxxxxx" />
+          </div>
           <div class="form-group full-width">
             <label for="alamat">Alamat Lengkap *</label>
             <textarea id="alamat" v-model="form.alamat" rows="3" placeholder="Jalan, RT/RW, Desa/Kelurahan" required></textarea>
@@ -88,27 +111,62 @@
       <PageCard :jenis-kelamin="jenisKelamin" class="form-card">
         <template #header>Data Orang Tua / Wali</template>
         <div class="grid-form">
+          <div class="form-group full-width">
+            <label for="no_telp_ortu">Nomor Telepon Utama Orang Tua / Wali * (Gunakan awalan 08 atau 62)</label>
+            <input id="no_telp_ortu" v-model="form.no_telp_ortu" type="tel" pattern="^(08|62)[0-9]{8,13}$" placeholder="Contoh: 08123456789 atau 628123456789" required />
+            <small style="color: #64748b; font-size: 0.8rem; margin-top: 4px; display: block;">Pastikan nomor aktif dan dapat dihubungi, diawali dengan 08 atau 62.</small>
+          </div>
+
+          <h4 class="section-title full-width" style="margin-top: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; color: #1e293b;">Data Ayah</h4>
           <div class="form-group">
             <label for="nama_ayah">Nama Ayah *</label>
             <input id="nama_ayah" v-model="form.nama_ayah" type="text" required />
           </div>
           <div class="form-group">
+            <label for="pendidikan_ayah">Pendidikan Ayah</label>
+            <input id="pendidikan_ayah" v-model="form.pendidikan_ayah" type="text" />
+          </div>
+          <div class="form-group">
             <label for="pekerjaan_ayah">Pekerjaan Ayah *</label>
             <input id="pekerjaan_ayah" v-model="form.pekerjaan_ayah" type="text" required />
           </div>
-          
+          <div class="form-group">
+            <label for="penghasilan_ayah">Penghasilan Ayah</label>
+            <input id="penghasilan_ayah" v-model="form.penghasilan_ayah" type="text" placeholder="Rp." />
+          </div>
+          <div class="form-group">
+            <label for="agama_ayah">Agama Ayah</label>
+            <input id="agama_ayah" v-model="form.agama_ayah" type="text" />
+          </div>
+          <div class="form-group full-width">
+            <label for="kewarganegaraan_ayah">Kewarganegaraan Ayah</label>
+            <input id="kewarganegaraan_ayah" v-model="form.kewarganegaraan_ayah" type="text" />
+          </div>
+
+          <h4 class="section-title full-width" style="margin-top: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; color: #1e293b;">Data Ibu</h4>
           <div class="form-group">
             <label for="nama_ibu">Nama Ibu *</label>
             <input id="nama_ibu" v-model="form.nama_ibu" type="text" required />
           </div>
           <div class="form-group">
+            <label for="pendidikan_ibu">Pendidikan Ibu</label>
+            <input id="pendidikan_ibu" v-model="form.pendidikan_ibu" type="text" />
+          </div>
+          <div class="form-group">
             <label for="pekerjaan_ibu">Pekerjaan Ibu *</label>
             <input id="pekerjaan_ibu" v-model="form.pekerjaan_ibu" type="text" required />
           </div>
-
+          <div class="form-group">
+            <label for="penghasilan_ibu">Penghasilan Ibu</label>
+            <input id="penghasilan_ibu" v-model="form.penghasilan_ibu" type="text" placeholder="Rp." />
+          </div>
+          <div class="form-group">
+            <label for="agama_ibu">Agama Ibu</label>
+            <input id="agama_ibu" v-model="form.agama_ibu" type="text" />
+          </div>
           <div class="form-group full-width">
-            <label for="no_telp_ortu">Nomor WhatsApp / Telepon Orang Tua *</label>
-            <input id="no_telp_ortu" v-model="form.no_telp_ortu" type="tel" placeholder="08xxxxxxxxxx" required />
+            <label for="kewarganegaraan_ibu">Kewarganegaraan Ibu</label>
+            <input id="kewarganegaraan_ibu" v-model="form.kewarganegaraan_ibu" type="text" />
           </div>
         </div>
       </PageCard>
@@ -151,12 +209,30 @@ const form = reactive({
   alamat: '',
   is_transfer_student: false,
   previous_school_name: '',
-  nama_ayah: '',
-  nama_ibu: '',
-  pekerjaan_ayah: '',
-  pekerjaan_ibu: '',
-  no_telp_ortu: '',
   kelas_yang_didaftar: '',
+
+  agama: '',
+  golongan_darah: '',
+  kewarganegaraan: 'WNI',
+  no_telp: '',
+
+  nama_ayah: '',
+  pendidikan_ayah: '',
+  pekerjaan_ayah: '',
+  penghasilan_ayah: '',
+  no_telp_ayah: '',
+  agama_ayah: '',
+  kewarganegaraan_ayah: 'WNI',
+
+  nama_ibu: '',
+  pendidikan_ibu: '',
+  pekerjaan_ibu: '',
+  penghasilan_ibu: '',
+  no_telp_ibu: '',
+  agama_ibu: '',
+  kewarganegaraan_ibu: 'WNI',
+  
+  no_telp_ortu: '',
 });
 
 onMounted(() => {
@@ -172,7 +248,7 @@ async function handleSubmit() {
   successMsg.value = '';
   
   // Validasi Frontend Tambahan
-  if (!form.full_name || !form.tempat_lahir || !form.tanggal_lahir || !form.alamat || !form.nama_ayah || !form.nama_ibu || !form.no_telp_ortu || !form.kelas_yang_didaftar) {
+  if (!form.full_name || !form.tempat_lahir || !form.tanggal_lahir || !form.alamat || !form.nama_ayah || !form.nama_ibu || !form.kelas_yang_didaftar || !form.agama || !form.kewarganegaraan || !form.no_telp_ortu) {
     errorMsg.value = 'Silakan lengkapi semua field yang bertanda bintang (*).';
     window.scrollTo({ top: 0, behavior: 'smooth' });
     return;
@@ -183,10 +259,8 @@ async function handleSubmit() {
     const res = await pendaftaranApi.submitForm(form);
     successMsg.value = res.message || 'Data pendaftaran berhasil disimpan.';
     
-    // Auto redirect ke halaman status setelah 2 detik
-    setTimeout(() => {
-      router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
-    }, 2000);
+    // Langsung redirect ke halaman status
+    router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
     
     window.scrollTo({ top: 0, behavior: 'smooth' });
   } catch (e) {

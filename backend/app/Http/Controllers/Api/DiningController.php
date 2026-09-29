@@ -40,7 +40,7 @@ class DiningController extends Controller
         // Jika murid belum punya record Student, buatkan record baru otomatis
         if (!$student) {
             $count = Student::count() + 1;
-            $paddedNum = str_pad((string) $count, 3, '0', STR_PAD_LEFT);
+            $paddedNum = str_pad((string) $count, 4, '0', STR_PAD_LEFT);
             $student = Student::create([
                 'user_id' => $user->id,
                 'full_name' => $user->name,

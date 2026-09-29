@@ -1,7 +1,7 @@
 <template>
   <div class="clearance-pembayaran-page" :class="themeClass">
     <h2 class="page-heading">Pembayaran Pendaftaran</h2>
-    <p class="page-subtitle">Status pembayaran 60% pendaftaran dan verifikasi (diverifikasi otomatis via Midtrans).</p>
+    <p class="page-subtitle">Status pembayaran pendaftaran (Diverifikasi Otomatis oleh Sistem AI secara Instan).</p>
 
     <div class="content-layout">
       <main class="content-main">
@@ -13,11 +13,52 @@
             </div>
             <p class="status-desc">{{ statusDesc }}</p>
             
-            <div v-if="statusPembayaran !== 'terverifikasi'" class="payment-actions">
-              <button class="btn-pay" :disabled="loadingPay" @click="handleBayar">
+            <div v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'" class="payment-upload flex flex-col gap-3">
+              <label class="upload-label" for="bukti_pembayaran">Upload Bukti Transfer (Gambar/PDF)</label>
+              <input type="file" id="bukti_pembayaran" accept="image/*" @change="onFileChange" :disabled="loadingPay" class="file-input" />
+              <button class="btn-pay" :disabled="loadingPay || !selectedFile" @click="handleUpload">
                 <span v-if="loadingPay" class="spinner"></span>
-                {{ loadingPay ? 'Memproses...' : 'Bayar Sekarang (Midtrans)' }}
+                {{ loadingPay ? 'Mengupload...' : 'Upload & Simpan Bukti' }}
               </button>
+              
+              <div class="mt-2 text-center text-sm font-semibold text-gray-500">ATAU</div>
+              
+              <button class="btn-chat-verify" @click="openChatbotVerification">
+                🤖 Verifikasi Instan via Chatbot AI
+              </button>
+            </div>
+            
+            <div v-else-if="statusPembayaran === 'menunggu' || statusPembayaran === 'pending'" class="payment-waiting">
+              <p>Bukti pembayaran telah diupload dan sedang diverifikasi oleh sistem.</p>
+              <a v-if="payment?.bukti_path" :href="`/storage/${payment.bukti_path}`" target="_blank" class="btn-secondary">Lihat Bukti yang Diupload</a>
+            </div>
+          </div>
+        </PageCard>
+
+        <PageCard :jenis-kelamin="jenisKelamin" class="card-rekening" v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'">
+          <template #header>Rekening Tujuan Transfer</template>
+          <div class="rekening-body">
+            <p class="rekening-desc">Silakan transfer biaya pendaftaran ke rekening resmi sekolah berikut:</p>
+            <div class="bank-list">
+              <div class="bank-item">
+                <div class="bank-logo">BCA</div>
+                <div class="bank-details">
+                  <div class="bank-name">Bank BCA</div>
+                  <div class="rek-number">1234 5678 90</div>
+                  <div class="rek-name">A.n. Sekolah SLA Purwodadi</div>
+                </div>
+              </div>
+              <div class="bank-item">
+                <div class="bank-logo">BNI</div>
+                <div class="bank-details">
+                  <div class="bank-name">Bank BNI</div>
+                  <div class="rek-number">0987 654 321</div>
+                  <div class="rek-name">A.n. Sekolah SLA Purwodadi</div>
+                </div>
+              </div>
+            </div>
+            <div class="rekening-note">
+              <em>* Pastikan untuk menyimpan struk atau bukti screenshot setelah melakukan transfer.</em>
             </div>
           </div>
         </PageCard>
@@ -53,9 +94,9 @@
         <PageCard :jenis-kelamin="jenisKelamin" class="card-info">
           <template #header>Informasi</template>
           <ul class="info-list">
-            <li>Lakukan pembayaran pendaftaran sesuai nominal yang ditetapkan.</li>
-            <li>Pembayaran menggunakan Virtual Account, GoPay, OVO, dll via Midtrans.</li>
-            <li>Status akan terupdate otomatis setelah pembayaran berhasil.</li>
+            <li>Lakukan pembayaran pendaftaran sesuai nominal yang ditetapkan melalui transfer bank.</li>
+            <li>Setelah transfer, upload foto atau scan bukti transfer di form yang tersedia.</li>
+            <li>Sistem AI kami akan memverifikasi bukti pembayaran Anda secara instan (24/7).</li>
           </ul>
         </PageCard>
 
@@ -98,10 +139,20 @@ const statusClass = computed(() => {
   return 'status-no';
 });
 const statusDesc = computed(() => {
-  if (statusPembayaran.value === 'terverifikasi') return 'Pembayaran pendaftaran Anda telah berhasil terverifikasi.';
-  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Selesaikan pembayaran Anda melalui Midtrans.';
-  return 'Silakan klik Bayar Sekarang untuk menyelesaikan pembayaran pendaftaran.';
+  if (statusPembayaran.value === 'terverifikasi') return 'Pembayaran pendaftaran Anda telah berhasil diverifikasi oleh AI.';
+  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Menunggu verifikasi pembayaran oleh sistem AI...';
+  if (statusPembayaran.value === 'ditolak') return 'Bukti pembayaran ditolak oleh sistem AI, mohon periksa dan upload ulang.';
+  return 'Silakan upload bukti pembayaran pendaftaran (transfer bank).';
 });
+
+const selectedFile = ref(null);
+
+function onFileChange(e) {
+  const file = e.target.files[0];
+  if (file) {
+    selectedFile.value = file;
+  }
+}
 
 function formatRp(n) {
   if (n == null || n === '') return '—';
@@ -125,31 +176,26 @@ async function loadData() {
   }
 }
 
-async function handleBayar() {
+async function handleUpload() {
+  if (!selectedFile.value) {
+    alert('Pilih file bukti pembayaran terlebih dahulu!');
+    return;
+  }
   loadingPay.value = true;
   try {
-    const res = await paymentApi.createTransaction();
-    if (res.snap_token) {
-      window.snap.pay(res.snap_token, {
-        onSuccess: function(result){
-          loadData();
-        },
-        onPending: function(result){
-          loadData();
-        },
-        onError: function(result){
-          alert('Pembayaran gagal atau terjadi kesalahan.');
-        },
-        onClose: function(){
-          loadData();
-        }
-      });
-    }
+    const res = await pendaftaranApi.uploadBuktiPembayaran(selectedFile.value);
+    alert(res.message || 'Berhasil diupload');
+    selectedFile.value = null;
+    loadData();
   } catch (e) {
-    alert(e.message || 'Gagal memulai pembayaran.');
+    alert(e.message || 'Gagal mengupload bukti pembayaran.');
   } finally {
     loadingPay.value = false;
   }
+}
+
+function openChatbotVerification() {
+  window.dispatchEvent(new CustomEvent('open-chat', { detail: 'saya mau bayar' }));
 }
 
 onMounted(() => {
@@ -240,8 +286,145 @@ onMounted(() => {
 
 .status-desc {
   font-size: 0.95rem;
-  color: #64748b;
+  color: #475569;
+  line-height: 1.4;
   margin: 0;
+}
+
+/* Rekening Section */
+.card-rekening :deep(.page-card-body) {
+  padding: 1.5rem;
+}
+
+.rekening-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.rekening-desc {
+  font-size: 0.95rem;
+  color: #334155;
+  margin: 0;
+  font-weight: 500;
+}
+
+.bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.bank-item {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  background: #f8fafc;
+  padding: 1rem 1.25rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+}
+
+.bank-logo {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #0f1e3c;
+  font-weight: 800;
+  font-size: 1.1rem;
+  width: 60px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
+.bank-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.bank-name {
+  font-weight: 700;
+  color: #1e293b;
+  font-size: 0.95rem;
+}
+
+.rek-number {
+  font-family: monospace;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f766e;
+  letter-spacing: 1.5px;
+}
+
+.theme-perempuan .rek-number {
+  color: #6d28d9;
+}
+
+.rek-name {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.rekening-note {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  margin-top: 0.5rem;
+}
+
+.payment-upload {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 400px;
+}
+
+.upload-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+.file-input {
+  padding: 0.5rem;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  cursor: pointer;
+}
+
+.payment-waiting {
+  background: #fef3c7;
+  padding: 1rem;
+  border-radius: 12px;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.95rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.btn-secondary {
+  display: inline-block;
+  text-align: center;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #374151;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn-secondary:hover {
+  background: #f9fafb;
 }
 
 .detail-table-wrap {
@@ -368,5 +551,26 @@ onMounted(() => {
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+.btn-chat-verify {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
+}
+
+.btn-chat-verify:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
 }
 </style>
