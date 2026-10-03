@@ -28,26 +28,87 @@
 </template>
 
 <script setup>
-const schedule = [
-  {
-    name: 'Senin',
-    items: [
-      { time: '07:30 - 08:50', subject: 'Matematika', className: 'X IPA 1', room: 'R-201', status: 'Selesai' },
-      { time: '09:10 - 10:30', subject: 'Matematika', className: 'X IPA 2', room: 'R-203', status: 'Berikutnya' },
-    ],
-  },
-  {
-    name: 'Selasa',
-    items: [
-      { time: '08:00 - 09:20', subject: 'Aljabar', className: 'XI IPA 1', room: 'LAB-1', status: 'Terjadwal' },
-      { time: '10:00 - 11:20', subject: 'Aljabar', className: 'XI IPA 2', room: 'LAB-1', status: 'Terjadwal' },
-    ],
-  },
-  {
-    name: 'Rabu',
-    items: [{ time: '07:30 - 08:50', subject: 'Matematika', className: 'X IPA 3', room: 'R-205', status: 'Terjadwal' }],
-  },
-];
+import { computed } from 'vue';
+
+const user = computed(() => {
+  try {
+    return JSON.parse(localStorage.getItem('user') || '{}');
+  } catch {
+    return {};
+  }
+});
+
+const schedule = computed(() => {
+  const u = user.value;
+  const subjSmp = u.subject_smp_name || 'Mata Pelajaran SMP';
+  const subjSma = u.subject_sma_name || 'Mata Pelajaran SMA';
+  
+  const days = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat'];
+  const timeSlots = [
+    '07:30 - 09:00',
+    '09:15 - 10:45',
+    '11:00 - 12:30',
+    '13:15 - 14:45',
+    '15:00 - 16:30'
+  ];
+
+  const classesToSchedule = [];
+  
+  // Prepare list of classes to teach
+  if (u.jenjang_guru === 'smp' || u.jenjang_guru === 'smp_sma') {
+    const smpClasses = ['VII A', 'VII B', 'VIII A', 'VIII B', 'IX A', 'IX B'];
+    smpClasses.forEach(c => {
+      classesToSchedule.push({ className: c, subject: subjSmp });
+      classesToSchedule.push({ className: c, subject: subjSmp }); // 2x per minggu
+    });
+  }
+  
+  if (u.jenjang_guru === 'sma' || u.jenjang_guru === 'smp_sma') {
+    const smaClasses = ['X IPA 1', 'X IPA 2', 'XI IPA 1', 'XI IPA 2', 'XII IPA 1', 'XII IPA 2'];
+    smaClasses.forEach(c => {
+      classesToSchedule.push({ className: c, subject: subjSma });
+      if (u.jenjang_guru === 'sma') {
+        classesToSchedule.push({ className: c, subject: subjSma }); // 2x per minggu jika hanya SMA
+      }
+    });
+  }
+
+  if (classesToSchedule.length === 0) {
+    classesToSchedule.push({ className: 'VII A', subject: 'Matematika' });
+    classesToSchedule.push({ className: 'VIII A', subject: 'Matematika' });
+  }
+
+  const result = [];
+  let slotIndex = 0;
+
+  days.forEach(day => {
+    const dayItems = [];
+    timeSlots.forEach(time => {
+      if (slotIndex < classesToSchedule.length) {
+        const item = classesToSchedule[slotIndex];
+        const room = item.className.includes('VII') ? 'R-101' : 
+                     item.className.includes('VIII') ? 'R-102' :
+                     item.className.includes('IX') ? 'R-103' :
+                     item.className.includes('X') ? 'LAB-1' :
+                     item.className.includes('XI') ? 'LAB-2' : 'LAB-3';
+                     
+        dayItems.push({
+          time: time,
+          subject: item.subject,
+          className: item.className,
+          room: room,
+          status: day === 'Senin' ? 'Selesai' : (day === 'Selasa' ? 'Berikutnya' : 'Terjadwal')
+        });
+        slotIndex++;
+      }
+    });
+    if (dayItems.length > 0) {
+      result.push({ name: day, items: dayItems });
+    }
+  });
+
+  return result;
+});
 </script>
 
 <style scoped>

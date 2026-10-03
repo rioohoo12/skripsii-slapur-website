@@ -77,7 +77,7 @@ async function handleLogout() {
 function checkAccess(toPath) {
   if (pendaftaranStore.loading || pendaftaranStore.isComplete) return;
   
-  const isAllowedRoute = toPath.includes('/pendaftaran') || toPath.includes('/biodata') || toPath.includes('/clearance') || toPath.includes('/administrasi');
+  const isAllowedRoute = toPath.includes('/pendaftaran') || toPath.includes('/biodata') || toPath.includes('/clearance') || toPath.includes('/administrasi') || toPath.includes('/tugas') || toPath.includes('/absensi');
   
   if (!isAllowedRoute) {
     alert('Anda harus menyelesaikan seluruh tahapan pendaftaran terlebih dahulu sebelum mengakses menu ini.');

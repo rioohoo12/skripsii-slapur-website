@@ -56,14 +56,13 @@ export const useAuthStore = defineStore('auth', {
       localStorage.removeItem('user');
       authApi.setToken(null);
     },
-    async logout() {
-      try {
-        await authApi.logout();
-      } catch (e) {
+    logout() {
+      // Call the API in the background without awaiting
+      authApi.logout().catch(e => {
         console.error('Logout failed on server', e);
-      } finally {
-        this.clearAuth();
-      }
+      });
+      // Clear auth immediately so UI responds instantly
+      this.clearAuth();
     }
   }
 });

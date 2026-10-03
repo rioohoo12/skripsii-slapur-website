@@ -4,64 +4,194 @@
       <div class="head">
         <div>
           <h2>Absensi Siswa</h2>
-          <p>Catat status hadir, izin, sakit, atau alpha setiap pertemuan.</p>
+          <p>Pilih kelas untuk mencatat absensi hari ini.</p>
         </div>
-        <button class="primary-btn" type="button">Simpan Absensi</button>
       </div>
-      <div class="chips">
-        <span class="hadir">Hadir</span>
-        <span class="izin">Izin</span>
-        <span class="sakit">Sakit</span>
-        <span class="alpha">Alpha</span>
+      
+      <div class="class-selector-tabs">
+        <button 
+          v-for="cls in availableClasses" 
+          :key="cls.tingkat" 
+          type="button"
+          :class="['class-tab', { active: selectedTingkat === cls.tingkat }]"
+          @click="selectClass(cls.tingkat)"
+          :disabled="loading"
+        >
+          {{ cls.name }}
+        </button>
+        
+        <div class="date-picker">
+          <label>Tanggal:</label>
+          <input type="date" v-model="currentDate" @change="loadStudents" :disabled="loading" />
+        </div>
       </div>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Nama</th>
-              <th>NIS</th>
-              <th>Status Hari Ini</th>
-              <th>Keterangan</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="row in attendanceRows" :key="row.nis">
-              <td>{{ row.name }}</td>
-              <td>{{ row.nis }}</td>
-              <td><span class="badge" :class="row.status.toLowerCase()">{{ row.status }}</span></td>
-              <td>{{ row.note }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
 
-    <section class="panel">
-      <h3>Riwayat Absensi Mingguan</h3>
-      <div class="history-grid">
-        <article v-for="item in weeklySummary" :key="item.label" class="history-card">
-          <p class="label">{{ item.label }}</p>
-          <p class="value">{{ item.value }}</p>
-        </article>
+      <div v-if="loading" class="loading-state">Memuat data...</div>
+
+      <div v-else-if="selectedTingkat && students.length === 0" class="empty-state">
+        Belum ada siswa yang terdaftar atau memenuhi syarat di {{ selectedClassName }}.
+      </div>
+
+      <div v-else-if="selectedTingkat && students.length > 0">
+        <div class="head" style="margin-top: 1.5rem;">
+          <h3>Daftar Siswa - {{ selectedClassName }}</h3>
+          <button class="primary-btn" type="button" @click="saveAttendance" :disabled="saving">
+            {{ saving ? 'Menyimpan...' : 'Simpan Absensi' }}
+          </button>
+        </div>
+        
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>No</th>
+                <th>Nama Siswa</th>
+                <th>Status Kehadiran</th>
+                <th>Keterangan Tambahan</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(student, index) in students" :key="student.id">
+                <td>{{ index + 1 }}</td>
+                <td>{{ student.nama }}</td>
+                <td>
+                  <div class="radio-group">
+                    <label class="radio-label hadir">
+                      <input type="radio" v-model="student.status" value="Hadir"> Hadir
+                    </label>
+                    <label class="radio-label izin">
+                      <input type="radio" v-model="student.status" value="Izin"> Izin
+                    </label>
+                    <label class="radio-label sakit">
+                      <input type="radio" v-model="student.status" value="Sakit"> Sakit
+                    </label>
+                    <label class="radio-label alpha">
+                      <input type="radio" v-model="student.status" value="Alpha"> Alpha
+                    </label>
+                  </div>
+                </td>
+                <td>
+                  <input type="text" v-model="student.remarks" placeholder="Catatan (opsional)" class="input-remarks" />
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </section>
   </div>
 </template>
 
 <script setup>
-const attendanceRows = [
-  { name: 'Adit Saputra', nis: '240011', status: 'Hadir', note: '-' },
-  { name: 'Bunga Maharani', nis: '240012', status: 'Izin', note: 'Surat orang tua' },
-  { name: 'Cahyo Putra', nis: '240013', status: 'Sakit', note: 'Demam' },
-  { name: 'Dina Lestari', nis: '240014', status: 'Alpha', note: 'Belum ada keterangan' },
-];
+import { ref, onMounted, computed } from 'vue';
+import { authApi } from '@/api/auth';
 
-const weeklySummary = [
-  { label: 'Total Hadir', value: '176' },
-  { label: 'Total Izin', value: '8' },
-  { label: 'Total Sakit', value: '5' },
-  { label: 'Total Alpha', value: '3' },
-];
+const user = computed(() => {
+  try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
+});
+
+const availableClasses = ref([]);
+const selectedTingkat = ref('');
+const currentDate = ref(new Date().toISOString().split('T')[0]);
+const students = ref([]);
+const loading = ref(false);
+const saving = ref(false);
+
+const selectedClassName = computed(() => {
+  const cls = availableClasses.value.find(c => c.tingkat === selectedTingkat.value);
+  return cls ? cls.name : 'Kelas';
+});
+
+const loadClasses = () => {
+  const j = user.value.jenjang_guru || 'smp_sma'; // Fallback if missing
+  const classes = [];
+  if (j === 'smp' || j === 'smp_sma') {
+    classes.push({ tingkat: 7, name: 'Kelas 7 (SMP)' });
+    classes.push({ tingkat: 8, name: 'Kelas 8 (SMP)' });
+    classes.push({ tingkat: 9, name: 'Kelas 9 (SMP)' });
+  }
+  if (j === 'sma' || j === 'smp_sma') {
+    classes.push({ tingkat: 10, name: 'Kelas 10 (SMA)' });
+    classes.push({ tingkat: 11, name: 'Kelas 11 (SMA)' });
+    classes.push({ tingkat: 12, name: 'Kelas 12 (SMA)' });
+  }
+  availableClasses.value = classes;
+};
+
+const selectClass = (tingkat) => {
+  selectedTingkat.value = tingkat;
+  loadStudents();
+};
+
+const loadStudents = async () => {
+  if (!selectedTingkat.value) {
+    students.value = [];
+    return;
+  }
+  
+  loading.value = true;
+  try {
+    // Ambil data siswa di kelas tersebut dari backend
+    const resSiswa = await authApi.fetch(`/guru/kelas/${selectedTingkat.value}`);
+    let dataSiswa = resSiswa.students || [];
+    
+    // Ambil data absensi yang mungkin sudah disimpan hari ini
+    const resAbsen = await authApi.fetch(`/guru/absensi?tingkat=${selectedTingkat.value}&date=${currentDate.value}`);
+    const savedAttendances = resAbsen.attendances || [];
+    
+    // Gabungkan data
+    dataSiswa = dataSiswa.map(s => {
+      const existing = savedAttendances.find(a => a.siswa_id === s.id);
+      return {
+        ...s,
+        status: existing ? existing.status : 'Hadir', // Default Hadir
+        remarks: existing ? existing.remarks : ''
+      };
+    });
+    
+    students.value = dataSiswa;
+  } catch (error) {
+    console.error("Gagal memuat data siswa:", error);
+    if (error.response) {
+       console.error("Response data:", error.response.data);
+    }
+    alert("Gagal memuat data siswa: " + (error.message || error));
+  } finally {
+    loading.value = false;
+  }
+};
+
+const saveAttendance = async () => {
+  saving.value = true;
+  const subj = user.value.jenjang_guru === 'sma' ? user.value.subject_sma_name : user.value.subject_smp_name;
+  const payload = {
+    tingkat: selectedTingkat.value,
+    date: currentDate.value,
+    subject_name: subj || 'Mata Pelajaran',
+    attendances: students.value.map(s => ({
+      siswa_id: s.id,
+      status: s.status,
+      remarks: s.remarks
+    }))
+  };
+  
+  try {
+    const res = await authApi.fetch('/guru/absensi', {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    alert(res.message || 'Absensi berhasil disimpan!');
+  } catch (error) {
+    console.error("Gagal menyimpan", error);
+    alert("Gagal menyimpan absensi.");
+  } finally {
+    saving.value = false;
+  }
+};
+
+onMounted(() => {
+  loadClasses();
+});
 </script>
 
 <style scoped>
@@ -73,17 +203,16 @@ const weeklySummary = [
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 14px;
-  padding: 1rem;
+  padding: 1.25rem;
 }
 .head {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 1rem;
-  margin-bottom: 0.75rem;
+  margin-bottom: 1rem;
 }
-h2,
-h3 {
+h2, h3 {
   margin: 0;
   color: #1e293b;
 }
@@ -91,41 +220,68 @@ p {
   margin: 0.3rem 0 0;
   color: #64748b;
 }
+.class-selector-tabs {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  background: #f8fafc;
+  padding: 1rem;
+  border-radius: 10px;
+}
+.class-tab {
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.class-tab:hover:not(:disabled) {
+  border-color: #94a3b8;
+  background: #f1f5f9;
+}
+.class-tab.active {
+  background: #2563eb;
+  color: #fff;
+  border-color: #2563eb;
+}
+.class-tab:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.date-picker {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.date-picker input {
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-family: inherit;
+}
 .primary-btn {
   border: none;
   background: #2563eb;
   color: #fff;
   border-radius: 10px;
-  padding: 0.55rem 0.9rem;
-  cursor: pointer;
-}
-.chips {
-  display: flex;
-  gap: 0.4rem;
-  flex-wrap: wrap;
-  margin-bottom: 0.8rem;
-}
-.chips span {
-  border-radius: 999px;
-  padding: 0.23rem 0.55rem;
-  font-size: 0.75rem;
+  padding: 0.65rem 1rem;
   font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
 }
-.chips .hadir {
-  background: #dcfce7;
-  color: #166534;
+.primary-btn:hover {
+  opacity: 0.9;
 }
-.chips .izin {
-  background: #fef3c7;
-  color: #92400e;
-}
-.chips .sakit {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.chips .alpha {
-  background: #fee2e2;
-  color: #991b1b;
+.primary-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
 }
 .table-wrap {
   overflow-x: auto;
@@ -134,72 +290,47 @@ table {
   width: 100%;
   border-collapse: collapse;
 }
-th,
-td {
+th, td {
   text-align: left;
-  padding: 0.65rem;
+  padding: 0.85rem;
   border-bottom: 1px solid #e2e8f0;
-  font-size: 0.88rem;
+  font-size: 0.9rem;
 }
 th {
   color: #475569;
-}
-.badge {
-  border-radius: 999px;
-  padding: 0.2rem 0.5rem;
-  font-size: 0.75rem;
   font-weight: 600;
-}
-.badge.hadir {
-  background: #dcfce7;
-  color: #166534;
-}
-.badge.izin {
-  background: #fef3c7;
-  color: #92400e;
-}
-.badge.sakit {
-  background: #dbeafe;
-  color: #1d4ed8;
-}
-.badge.alpha {
-  background: #fee2e2;
-  color: #991b1b;
-}
-.history-grid {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.7rem;
-  margin-top: 0.8rem;
-}
-.history-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  padding: 0.7rem;
   background: #f8fafc;
 }
-.label {
-  margin: 0;
-  font-size: 0.78rem;
+.radio-group {
+  display: flex;
+  gap: 0.75rem;
 }
-.value {
-  margin: 0.2rem 0 0;
-  color: #0f172a;
-  font-weight: 700;
-  font-size: 1.25rem;
+.radio-label {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.85rem;
+  cursor: pointer;
 }
-@media (max-width: 980px) {
-  .history-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.radio-label input {
+  cursor: pointer;
 }
-@media (max-width: 640px) {
-  .head {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .history-grid {
-    grid-template-columns: 1fr;
-  }
+.radio-label.hadir { color: #166534; }
+.radio-label.izin { color: #92400e; }
+.radio-label.sakit { color: #1d4ed8; }
+.radio-label.alpha { color: #991b1b; }
+.input-remarks {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+.loading-state, .empty-state {
+  text-align: center;
+  padding: 2rem;
+  color: #64748b;
+  background: #f8fafc;
+  border-radius: 10px;
 }
 </style>

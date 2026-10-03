@@ -73,6 +73,21 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('guru')->middleware('role:guru,admin,super_admin')->group(function () {
         Route::get('kelas', [GuruKelasController::class, 'index']);
         Route::get('kelas/{tingkat}', [GuruKelasController::class, 'show']);
+        
+        // Tugas Guru
+        Route::get('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'indexGuru']);
+        Route::post('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'storeGuru']);
+        Route::get('tugas/{id}/submissions', [\App\Http\Controllers\Api\AssignmentController::class, 'submissions']);
+        
+        // Absensi Guru
+        Route::post('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'storeGuru']);
+        Route::get('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'getGuruByDate']);
+    });
+
+    Route::prefix('siswa')->middleware('role:siswa,admin,super_admin')->group(function () {
+        Route::get('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'getSiswa']);
+        Route::get('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'indexSiswa']);
+        Route::post('tugas/{id}/submit', [\App\Http\Controllers\Api\AssignmentController::class, 'submitSiswa']);
     });
 
     // --- Staff Asrama Routes (AsramaStaffController) ---
@@ -97,12 +112,13 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // --- Administrasi (Staff) Routes ---
-    Route::post('administrasi/login', [\App\Http\Controllers\Api\AdministrasiController::class, 'login']);
-    Route::middleware(['auth:sanctum', 'staff.administrasi'])->prefix('administrasi')->group(function () {
+    Route::post('v1/auth/login', [\App\Http\Controllers\Api\AdministrasiController::class, 'login']);
+    Route::middleware(['auth:sanctum', 'role:staff'])->prefix('v1/staff')->group(function () {
+        Route::post('auth/logout', [\App\Http\Controllers\Api\AdministrasiController::class, 'logout']);
         Route::get('dashboard', [\App\Http\Controllers\Api\AdministrasiController::class, 'dashboard']);
         
-        Route::get('siswa', [\App\Http\Controllers\Api\AdministrasiController::class, 'getSiswa']);
-        Route::get('siswa/{id}', [\App\Http\Controllers\Api\AdministrasiController::class, 'getSiswaDetail']);
+        Route::get('students', [\App\Http\Controllers\Api\AdministrasiController::class, 'getSiswa']);
+        Route::get('students/{id}', [\App\Http\Controllers\Api\AdministrasiController::class, 'getSiswaDetail']);
         Route::match(['put', 'patch'], 'siswa/{id}', [\App\Http\Controllers\Api\AdministrasiController::class, 'updateSiswa']);
         
         Route::get('dokumen', [\App\Http\Controllers\Api\AdministrasiController::class, 'getDokumen']);

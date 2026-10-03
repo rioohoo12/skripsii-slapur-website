@@ -53,8 +53,10 @@
 import { reactive, ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const form = reactive({ email: '', password: '' });
 const loading = ref(false);
 const loadingLong = ref(false);
@@ -73,13 +75,8 @@ watch(loading, (isLoading) => {
 
 onMounted(() => {
   try {
-    const token = localStorage.getItem('auth_token');
-    const user = localStorage.getItem('user');
-    if (token && user) {
-      const u = JSON.parse(user);
-      if (u.role && ['guru', 'admin', 'super_admin'].includes(u.role)) {
-        router.replace('/guru/dashboard');
-      }
+    if (authStore.isLoggedIn && authStore.isGuru) {
+      router.replace('/guru/dashboard');
     }
   } catch (_) {}
 });
@@ -89,8 +86,9 @@ async function handleLogin() {
   loading.value = true;
   try {
     const res = await authApi.loginGuru(form.email.trim(), form.password);
-    authApi.setToken(res.token);
-    if (res.user) localStorage.setItem('user', JSON.stringify(res.user));
+    if (res.user && res.token) {
+      authStore.setAuth(res.token, res.user);
+    }
     router.push('/guru/dashboard');
   } catch (e) {
     const msg = e?.message || '';

@@ -49,14 +49,6 @@ class GuruKelasController extends Controller
             ->whereHas('user', function ($q) {
                 $q->where('role', 'siswa');
             })
-            ->whereIn('user_id', function ($q) {
-                $q->select('user_id')
-                    ->from('pendaftaran_payments')
-                    ->where(function ($qq) {
-                        $qq->where('status', 'terverifikasi')
-                            ->orWhereColumn('nominal_dibayar', '>=', 'nominal_60_percent');
-                    });
-            })
             ->get(['kelas_yang_didaftar']);
 
         $grouped = $profiles->groupBy('kelas_yang_didaftar')->map->count()->toArray();
@@ -99,14 +91,6 @@ class GuruKelasController extends Controller
             ->whereHas('user', function ($q) {
                 $q->where('role', 'siswa');
             })
-            ->whereIn('user_id', function ($q) {
-                $q->select('user_id')
-                    ->from('pendaftaran_payments')
-                    ->where(function ($qq) {
-                        $qq->where('status', 'terverifikasi')
-                            ->orWhereColumn('nominal_dibayar', '>=', 'nominal_60_percent');
-                    });
-            })
             ->with('user:id,name,jenis_kelamin,email')
             ->orderBy('nama_lengkap')
             ->get();
@@ -120,6 +104,8 @@ class GuruKelasController extends Controller
                 'email' => $profile->user?->email,
             ];
         });
+        
+        // Fallback dihapus agar data tersinkronisasi sesuai database (hanya siswa riil)
 
         return response()->json([
             'kelas' => [
@@ -143,16 +129,9 @@ class GuruKelasController extends Controller
         if ($jenjang === 'sma') {
             return [10, 11, 12];
         }
-        if ($jenjang === 'smp_sma') {
-            return [7, 8, 9, 10, 11, 12];
-        }
-
-        // Jika role admin/super_admin tanpa jenjang, boleh lihat semua.
-        if (in_array($guru->role, ['admin', 'super_admin'], true)) {
-            return [7, 8, 9, 10, 11, 12];
-        }
-
-        return [];
+        
+        // Default allow all for guru, admin, super_admin, or if jenjang_guru is missing
+        return [7, 8, 9, 10, 11, 12];
     }
 
     private function labelKelas(int $tingkat): string

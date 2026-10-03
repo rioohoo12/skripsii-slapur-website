@@ -184,4 +184,7 @@ export const authApi = {
   },
   setToken,
   getToken,
+  fetch(endpoint, options = {}) {
+    return request(endpoint, options);
+  },
 };

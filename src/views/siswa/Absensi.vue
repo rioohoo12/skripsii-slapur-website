@@ -5,26 +5,31 @@
     <div class="absensi-layout">
       <!-- Tabel daftar absensi -->
       <PageCard :jenis-kelamin="jenisKelamin" class="card-tabel">
-        <template #header>Daftar Absensi Kelas</template>
+        <template #header>Riwayat Absensi</template>
         <div class="table-wrap">
           <table class="absensi-table">
             <thead>
               <tr>
                 <th class="col-no">No.</th>
-                <th class="col-pct">Kehadiran</th>
-                <th class="col-action">Detail</th>
+                <th>Tanggal</th>
+                <th>Mata Pelajaran</th>
+                <th>Guru</th>
+                <th>Status</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in daftarAbsensi" :key="i">
+              <tr v-for="(row, i) in daftarAbsensi" :key="row.id">
                 <td class="col-no">{{ i + 1 }}</td>
-                <td class="col-pct">{{ row.kehadiran }}%</td>
-                <td class="col-action">
-                  <button type="button" class="btn-detail" :class="themeClass">Detail</button>
+                <td>{{ row.date }}</td>
+                <td>{{ row.subject_name }}</td>
+                <td>{{ row.guru?.name || '-' }}</td>
+                <td>
+                  <span class="badge" :class="row.status.toLowerCase()">{{ row.status }}</span>
+                  <span v-if="row.remarks" style="display:block; font-size: 0.8rem; color: #64748b; margin-top: 2px;">{{ row.remarks }}</span>
                 </td>
               </tr>
               <tr v-if="!daftarAbsensi.length" class="empty-row">
-                <td colspan="3">Belum ada data absensi</td>
+                <td colspan="5">Belum ada riwayat absensi.</td>
               </tr>
             </tbody>
           </table>
@@ -62,20 +67,33 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import PageCard from '@/components/PageCard.vue';
+import { authApi } from '@/api/auth';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 
 const tahunSemester = ref('2025/2026 - GENAP');
-// Data kosong – gambaran umum tampilan (isi dari API nanti)
 const daftarAbsensi = ref([]);
 
 const rataRataKehadiran = computed(() => {
   if (!daftarAbsensi.value.length) return 0;
-  const total = daftarAbsensi.value.reduce((acc, r) => acc + (r.kehadiran || 0), 0);
-  return (total / daftarAbsensi.value.length).toFixed(2);
+  const totalHadir = daftarAbsensi.value.filter(a => a.status === 'Hadir').length;
+  return ((totalHadir / daftarAbsensi.value.length) * 100).toFixed(0);
+});
+
+const loadAbsensi = async () => {
+  try {
+    const res = await authApi.fetch('/siswa/absensi');
+    daftarAbsensi.value = res.attendances || [];
+  } catch (err) {
+    console.error('Gagal memuat absensi', err);
+  }
+};
+
+onMounted(() => {
+  loadAbsensi();
 });
 </script>
 
@@ -291,5 +309,28 @@ const rataRataKehadiran = computed(() => {
   font-weight: 600;
   color: #64748b;
   margin: 0;
+}
+.badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 0.2rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+.badge.hadir {
+  background: #dcfce7;
+  color: #166534;
+}
+.badge.izin {
+  background: #fef3c7;
+  color: #92400e;
+}
+.badge.sakit {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.badge.alpha {
+  background: #fee2e2;
+  color: #991b1b;
 }
 </style>

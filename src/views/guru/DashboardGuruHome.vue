@@ -98,11 +98,57 @@ const statCards = [
   { label: 'Lab / Praktikum Aktif', value: '3', sub: 'Sesi praktikum berjalan minggu ini' },
 ];
 
-const todaySchedule = [
-  { time: '07:30 - 08:50', subject: 'Matematika', className: 'X IPA 1' },
-  { time: '09:10 - 10:30', subject: 'Matematika', className: 'X IPA 2' },
-  { time: '11:00 - 12:20', subject: 'Aljabar Lanjut', className: 'XI IPA 1' },
-];
+const todaySchedule = computed(() => {
+  const u = user.value;
+  const subjSmp = u.subject_smp_name || 'Mata Pelajaran SMP';
+  const subjSma = u.subject_sma_name || 'Mata Pelajaran SMA';
+  
+  const timeSlots = [
+    '07:30 - 09:00',
+    '09:15 - 10:45',
+    '11:00 - 12:30',
+    '13:15 - 14:45',
+    '15:00 - 16:30'
+  ];
+
+  const classesToSchedule = [];
+  
+  if (u.jenjang_guru === 'smp' || u.jenjang_guru === 'smp_sma') {
+    classesToSchedule.push({ className: 'VII A', subject: subjSmp });
+    classesToSchedule.push({ className: 'VII B', subject: subjSmp });
+    if (u.jenjang_guru === 'smp') {
+      classesToSchedule.push({ className: 'VIII A', subject: subjSmp });
+      classesToSchedule.push({ className: 'VIII B', subject: subjSmp });
+    }
+  }
+  
+  if (u.jenjang_guru === 'sma' || u.jenjang_guru === 'smp_sma') {
+    classesToSchedule.push({ className: 'X IPA 1', subject: subjSma });
+    classesToSchedule.push({ className: 'X IPA 2', subject: subjSma });
+    if (u.jenjang_guru === 'smp_sma') {
+      classesToSchedule.push({ className: 'XI IPA 1', subject: subjSma });
+    } else {
+      classesToSchedule.push({ className: 'XI IPA 1', subject: subjSma });
+      classesToSchedule.push({ className: 'XI IPA 2', subject: subjSma });
+    }
+  }
+
+  if (classesToSchedule.length === 0) {
+    classesToSchedule.push({ className: 'VII A', subject: 'Matematika' });
+    classesToSchedule.push({ className: 'VIII A', subject: 'Matematika' });
+  }
+
+  const today = [];
+  for (let i = 0; i < classesToSchedule.length && i < timeSlots.length; i++) {
+    today.push({
+      time: timeSlots[i],
+      subject: classesToSchedule[i].subject,
+      className: classesToSchedule[i].className
+    });
+  }
+  
+  return today;
+});
 
 const announcements = [
   { title: 'Informasi dari admin: pembaruan kalender akademik', date: 'Hari ini, 08:15' },

@@ -163,8 +163,8 @@ class AuthController extends Controller
             'password' => 'required',
         ]);
 
-        $user = User::where('email', $request->email)
-            ->first(['id', 'name', 'email', 'password', 'role', 'avatar']);
+        $user = User::with(['subjectSmp', 'subjectSma'])->where('email', $request->email)
+            ->first(['id', 'name', 'email', 'password', 'role', 'avatar', 'jenjang_guru', 'subject_smp_id', 'subject_sma_id']);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -190,6 +190,11 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'avatar' => $user->avatar,
+                'jenjang_guru' => $user->jenjang_guru,
+                'subject_smp_id' => $user->subject_smp_id,
+                'subject_sma_id' => $user->subject_sma_id,
+                'subject_smp_name' => $user->subjectSmp->subject_name ?? '',
+                'subject_sma_name' => $user->subjectSma->subject_name ?? '',
             ],
             'token' => $token,
             'token_type' => 'Bearer',
@@ -241,6 +246,12 @@ class AuthController extends Controller
             'jenjang_guru' => $validated['jenjang_guru'],
             'subject_smp_id' => $validated['subject_smp_id'] ?? null,
             'subject_sma_id' => $validated['subject_sma_id'] ?? null,
+        ]);
+
+        DB::table('guru_profiles')->insert([
+            'user_id' => $user->id,
+            'created_at' => now(),
+            'updated_at' => now(),
         ]);
 
         return response()->json([
