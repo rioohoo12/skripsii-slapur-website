@@ -71,4 +71,9 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Subject::class, 'subject_sma_id');
     }
+
+    public function pendaftaranProfile()
+    {
+        return $this->hasOne(PendaftaranProfile::class, 'user_id');
+    }
 }

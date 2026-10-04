@@ -1,10 +1,16 @@
 <template>
   <div class="page-grid">
-    <PageCard title="Daftar Tugas Kelas">
-      <template #body>
-        <p class="description">Berikut adalah tugas-tugas yang diberikan oleh guru Anda untuk <strong>Kelas {{ tingkatClass || '...' }}</strong>.</p>
+    <PageCard :jenis-kelamin="jenisKelamin">
+      <template #header>
+        Daftar Tugas Kelas
+      </template>
+      <p class="description">Berikut adalah tugas-tugas yang diberikan oleh guru Anda untuk <strong>Kelas {{ tingkatClass || '...' }}</strong>.</p>
         
         <div v-if="loading" class="loading-state">Memuat tugas...</div>
+        
+        <div v-else-if="errorMsg" class="empty-state" style="color: red; font-weight: bold;">
+          {{ errorMsg }}
+        </div>
         
         <div class="table-responsive" v-else>
           <table class="table-tugas">
@@ -26,7 +32,7 @@
               <tr v-for="task in assignments" :key="task.id">
                 <td><strong>{{ task.title }}</strong></td>
                 <td><span class="subject-badge">{{ task.subject_name }}</span></td>
-                <td class="td-desc">{{ task.description.length > 50 ? task.description.substring(0, 50) + '...' : task.description }}</td>
+                <td class="td-desc">{{ (task.description || '').length > 50 ? (task.description || '').substring(0, 50) + '...' : (task.description || '') }}</td>
                 <td>{{ task.guru?.name }}</td>
                 <td>{{ task.due_date ? new Date(task.due_date).toLocaleDateString('id-ID') : '-' }}</td>
                 <td>
@@ -46,7 +52,6 @@
             </tbody>
           </table>
         </div>
-      </template>
     </PageCard>
 
     <!-- Modal Kerjakan / Lihat Tugas -->
@@ -58,8 +63,13 @@
         
         <form @submit.prevent="submitTask" v-if="!activeTask.submission">
           <div class="form-group">
-            <label>Jawaban / Keterangan</label>
-            <textarea v-model="submissionContent" required rows="6" placeholder="Ketik jawaban Anda di sini..."></textarea>
+            <label>Jawaban / Keterangan (Opsional jika upload file)</label>
+            <textarea v-model="submissionContent" rows="4" placeholder="Ketik jawaban Anda di sini..."></textarea>
+          </div>
+          
+          <div class="form-group">
+            <label>Unggah File Tugas (PDF/Word, maks 10MB)</label>
+            <input type="file" @change="handleFileUpload" accept=".pdf,.doc,.docx" class="file-input" />
           </div>
           
           <div class="modal-actions">
@@ -73,7 +83,19 @@
         <div v-else>
           <div class="form-group">
             <label>Jawaban Anda (Dikumpulkan pada {{ new Date(activeTask.submission.created_at).toLocaleString('id-ID') }}):</label>
-            <div class="submitted-content">{{ activeTask.submission.content }}</div>
+            <div v-if="activeTask.submission.content" class="submitted-content">{{ activeTask.submission.content }}</div>
+            
+            <div v-if="activeTask.submission.file_url" class="file-link-box">
+              <span class="file-icon">📄</span>
+              <a :href="activeTask.submission.file_url" target="_blank" class="download-link">Unduh / Lihat File Jawaban</a>
+            </div>
+            
+            <div v-if="activeTask.submission.status === 'graded'" class="grade-box">
+              <p><strong>Nilai dari Guru:</strong> <span class="score-badge">{{ activeTask.submission.grade }} / 100</span></p>
+            </div>
+            <div v-else class="grade-box pending">
+              <p><em>Belum dinilai oleh guru.</em></p>
+            </div>
           </div>
           <div class="modal-actions">
             <button type="button" class="btn-cancel" @click="showModal = false">Tutup</button>
@@ -98,16 +120,21 @@ const loading = ref(false);
 const showModal = ref(false);
 const activeTask = ref(null);
 const submissionContent = ref('');
+const submissionFile = ref(null);
 const saving = ref(false);
+
+const errorMsg = ref('');
 
 const loadAssignments = async () => {
   loading.value = true;
+  errorMsg.value = '';
   try {
     const res = await authApi.fetch('/siswa/tugas');
     assignments.value = res.assignments || [];
     tingkatClass.value = res.tingkat || '';
   } catch (error) {
     console.error("Gagal memuat tugas", error);
+    errorMsg.value = error.message || "Gagal memuat tugas dari server.";
   } finally {
     loading.value = false;
   }
@@ -116,7 +143,20 @@ const loadAssignments = async () => {
 const openSubmitModal = (task) => {
   activeTask.value = task;
   submissionContent.value = '';
+  submissionFile.value = null;
   showModal.value = true;
+};
+
+const handleFileUpload = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    if (file.size > 10 * 1024 * 1024) {
+      alert('Ukuran file maksimal adalah 10MB.');
+      event.target.value = '';
+      return;
+    }
+    submissionFile.value = file;
+  }
 };
 
 const viewSubmission = (task) => {
@@ -125,11 +165,20 @@ const viewSubmission = (task) => {
 };
 
 const submitTask = async () => {
+  if (!submissionContent.value && !submissionFile.value) {
+    alert('Harap isi jawaban atau unggah file.');
+    return;
+  }
+  
   saving.value = true;
   try {
+    const formData = new FormData();
+    if (submissionContent.value) formData.append('content', submissionContent.value);
+    if (submissionFile.value) formData.append('file', submissionFile.value);
+    
     await authApi.fetch(`/siswa/tugas/${activeTask.value.id}/submit`, {
       method: 'POST',
-      body: JSON.stringify({ content: submissionContent.value })
+      body: formData
     });
     
     alert('Tugas berhasil dikumpulkan!');
@@ -137,7 +186,7 @@ const submitTask = async () => {
     loadAssignments(); // Refresh list to update status
   } catch (error) {
     console.error('Gagal mengumpulkan tugas', error);
-    alert('Terjadi kesalahan saat mengumpulkan tugas.');
+    alert('Terjadi kesalahan saat mengumpulkan tugas: ' + error.message);
   } finally {
     saving.value = false;
   }
@@ -184,7 +233,19 @@ onMounted(() => {
 .form-group { margin-bottom: 1rem; }
 .form-group label { display: block; margin-bottom: 0.5rem; color: #475569; font-weight: 500; font-size: 0.875rem; }
 .form-group textarea { width: 100%; padding: 0.5rem; border: 1px solid #cbd5e1; border-radius: 6px; font-family: inherit; font-size: 0.875rem; }
-.submitted-content { padding: 0.75rem; background: #f1f5f9; border-radius: 6px; white-space: pre-wrap; font-size: 0.875rem; }
+.file-input { width: 100%; padding: 0.5rem; font-size: 0.875rem; color: #475569; }
+.submitted-content { padding: 0.75rem; background: #f1f5f9; border-radius: 6px; white-space: pre-wrap; font-size: 0.875rem; margin-bottom: 0.5rem; }
+
+.file-link-box { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; margin-top: 0.5rem; }
+.file-icon { font-size: 1.25rem; }
+.download-link { color: #2563eb; font-weight: 500; text-decoration: none; font-size: 0.875rem; }
+.download-link:hover { text-decoration: underline; color: #1d4ed8; }
+
+.grade-box { margin-top: 1rem; padding: 1rem; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; }
+.grade-box p { margin: 0; color: #166534; font-size: 0.9rem; }
+.grade-box.pending { background: #fffbeb; border-color: #fef08a; }
+.grade-box.pending p { color: #854d0e; }
+.score-badge { font-weight: 700; font-size: 1.1rem; background: #166534; color: white; padding: 0.2rem 0.6rem; border-radius: 4px; margin-left: 0.5rem; }
 
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
 .btn-cancel { background: white; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }

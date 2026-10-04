@@ -1,0 +1,1 @@
+import{_ as n}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{c as t,a as e,l as o}from"./index-CfC0Xgkq.js";const s={},r={class:"p-6"};function l(c,a){return o(),t("div",r,[...a[0]||(a[0]=[e("h2",{class:"text-2xl font-bold"},"Halaman PembayaranDetail.vue",-1),e("p",null,"Sedang dalam pengembangan.",-1)])])}const _=n(s,[["render",l]]);export{_ as default};

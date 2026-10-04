@@ -1,43 +1,93 @@
 <template>
-  <div class="page-grid">
-    <section class="profile-card">
-      <div class="profile-head">
-        <div class="avatar">{{ initials }}</div>
-        <div>
-          <h2 class="card-title">Profil Guru</h2>
-          <p class="card-desc">Kelola data pribadi, keamanan akun, dan foto profil.</p>
+  <div class="page-container">
+    <!-- Header Banner -->
+    <div class="profile-banner">
+      <div class="banner-content">
+        <div class="avatar-wrapper">
+          <div class="avatar">{{ initials }}</div>
+          <button class="edit-avatar-btn" title="Ubah Foto">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+          </button>
+        </div>
+        <div class="banner-text">
+          <h2 class="profile-name">{{ profile?.name || 'Memuat...' }}</h2>
+          <p class="profile-role">{{ jenjangLabel }}</p>
         </div>
       </div>
+    </div>
 
-      <div v-if="loading" class="loading-state">Memuat profil...</div>
-      <div v-else class="form-grid">
-        <div class="field">
-          <label>Nama lengkap</label>
-          <input type="text" :value="profile?.name || ''" readonly />
+    <!-- Main Content -->
+    <div class="profile-content">
+      <!-- Info Card -->
+      <section class="info-card">
+        <div class="card-header">
+          <h3>Informasi Pribadi</h3>
+          <p>Detail profil dan data mengajar Anda</p>
         </div>
-        <div class="field">
-          <label>Email</label>
-          <input type="text" :value="profile?.email || ''" readonly />
+
+        <div v-if="loading" class="loading-state">
+          <div class="spinner"></div>
+          Memuat data profil...
         </div>
-        <div class="field">
-          <label>Jenjang mengajar</label>
-          <input type="text" :value="jenjangLabel" readonly />
+        
+        <div v-else class="info-grid">
+          <div class="info-group">
+            <span class="info-label">Nama Lengkap</span>
+            <div class="info-value">
+              <span class="icon">👤</span>
+              <input type="text" :value="profile?.name || ''" readonly />
+            </div>
+          </div>
+          
+          <div class="info-group">
+            <span class="info-label">Alamat Email</span>
+            <div class="info-value">
+              <span class="icon">✉️</span>
+              <input type="email" :value="profile?.email || ''" readonly />
+            </div>
+          </div>
+
+          <div class="info-group">
+            <span class="info-label">Jenjang Mengajar</span>
+            <div class="info-value">
+              <span class="icon">🏫</span>
+              <input type="text" :value="jenjangLabel" readonly />
+            </div>
+          </div>
+          
+          <div class="info-group">
+            <span class="info-label">Status Akun</span>
+            <div class="info-value">
+              <span class="icon">✅</span>
+              <div class="status-badge">Aktif</div>
+            </div>
+          </div>
+
+          <!-- Hanya Tampilkan Jika Guru SMP / SMP_SMA -->
+          <div v-if="profile?.jenjang_guru === 'smp' || profile?.jenjang_guru === 'smp_sma'" class="info-group full-width">
+            <span class="info-label">Mata Pelajaran (SMP)</span>
+            <div class="info-value">
+              <span class="icon">📚</span>
+              <input type="text" :value="subjectSmpName || 'Tidak ada data'" readonly />
+            </div>
+          </div>
+
+          <!-- Hanya Tampilkan Jika Guru SMA / SMP_SMA -->
+          <div v-if="profile?.jenjang_guru === 'sma' || profile?.jenjang_guru === 'smp_sma'" class="info-group full-width">
+            <span class="info-label">Mata Pelajaran (SMA)</span>
+            <div class="info-value">
+              <span class="icon">📖</span>
+              <input type="text" :value="subjectSmaName || 'Tidak ada data'" readonly />
+            </div>
+          </div>
         </div>
-        <div v-if="profile?.jenjang_guru === 'smp' || profile?.jenjang_guru === 'smp_sma'" class="field">
-          <label>Mata pelajaran (SMP)</label>
-          <input type="text" :value="subjectSmpName || '—'" readonly />
+
+        <div class="card-footer">
+          <button type="button" class="btn primary-btn">Edit Informasi</button>
+          <button type="button" class="btn outline-btn">Ganti Kata Sandi</button>
         </div>
-        <div v-if="profile?.jenjang_guru === 'sma' || profile?.jenjang_guru === 'smp_sma'" class="field">
-          <label>Mata pelajaran (SMA)</label>
-          <input type="text" :value="subjectSmaName || '—'" readonly />
-        </div>
-      </div>
-      <div class="actions">
-        <button type="button" class="primary-btn">Edit Profil</button>
-        <button type="button" class="ghost-btn">Ganti Password</button>
-        <button type="button" class="ghost-btn">Ubah Foto Profil</button>
-      </div>
-    </section>
+      </section>
+    </div>
   </div>
 </template>
 
@@ -48,6 +98,7 @@ const profile = ref(null);
 const loading = ref(true);
 const subjectSmpName = ref('');
 const subjectSmaName = ref('');
+
 const initials = computed(() => {
   const n = (profile.value?.name || '').trim();
   if (!n) return 'G';
@@ -58,10 +109,10 @@ const initials = computed(() => {
 
 const jenjangLabel = computed(() => {
   const j = profile.value?.jenjang_guru;
-  if (j === 'smp') return 'Guru SMP';
-  if (j === 'sma') return 'Guru SMA';
+  if (j === 'smp') return 'Guru Sekolah Menengah Pertama (SMP)';
+  if (j === 'sma') return 'Guru Sekolah Menengah Atas (SMA)';
   if (j === 'smp_sma') return 'Guru SMP & SMA';
-  return '—';
+  return 'Guru SLAPUR';
 });
 
 onMounted(async () => {
@@ -96,100 +147,269 @@ onMounted(async () => {
 </script>
 
 <style scoped>
-.page-grid {
-  max-width: 760px;
+.page-container {
+  max-width: 900px;
+  margin: 0 auto;
+  animation: fadeIn 0.4s ease-out;
 }
-.profile-card {
-  padding: 1.25rem;
-  background: #fff;
+
+/* Banner Styles */
+.profile-banner {
+  position: relative;
+  height: 200px;
   border-radius: 16px;
-  border: 1px solid #e2e8f0;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  margin-bottom: 5rem; /* Space for the avatar overlapping */
+  box-shadow: 0 10px 25px -5px rgba(37, 99, 235, 0.3);
 }
-.profile-head {
+
+.banner-content {
+  position: absolute;
+  bottom: -4rem;
+  left: 2rem;
   display: flex;
-  align-items: center;
-  gap: 0.8rem;
+  align-items: flex-end;
+  gap: 1.5rem;
 }
+
+.avatar-wrapper {
+  position: relative;
+}
+
 .avatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 100%);
-  color: #fff;
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: #ffffff;
+  color: #1e40af;
   display: flex;
   align-items: center;
   justify-content: center;
+  font-size: 3rem;
   font-weight: 800;
-  letter-spacing: 0.03em;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  border: 4px solid #f8fafc;
 }
-.card-title {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
-}
-.card-desc {
-  font-size: 0.9rem;
-  color: #64748b;
-  margin: 0 0 1.5rem 0;
-  line-height: 1.5;
-}
-.form-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.9rem;
-}
-.field label {
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  margin-bottom: 0.35rem;
-}
-.field input {
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 0.92rem;
-  color: #1e293b;
-  padding: 0.6rem 0.75rem;
-  background: #f8fafc;
-  border-radius: 10px;
-  border: 1px solid #e2e8f0;
-}
-.actions {
+
+.edit-avatar-btn {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #3b82f6;
+  color: white;
+  border: 3px solid #f8fafc;
   display: flex;
-  gap: 0.55rem;
-  flex-wrap: wrap;
-  margin-top: 1rem;
-}
-.primary-btn,
-.ghost-btn {
-  border-radius: 10px;
-  font-size: 0.82rem;
-  padding: 0.52rem 0.82rem;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  transition: all 0.2s;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
 }
-.primary-btn {
-  border: none;
+.edit-avatar-btn:hover {
   background: #2563eb;
-  color: #fff;
+  transform: scale(1.05);
 }
-.ghost-btn {
-  border: 1px solid #cbd5e1;
-  background: #fff;
+
+.banner-text {
+  padding-bottom: 0.5rem;
+}
+
+.profile-name {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 0.25rem 0;
+}
+
+.profile-role {
+  font-size: 1rem;
+  color: #64748b;
+  margin: 0;
+  font-weight: 500;
+}
+
+/* Card Styles */
+.profile-content {
+  padding: 0 1rem;
+}
+
+.info-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 2rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.02);
+  border: 1px solid #f1f5f9;
+}
+
+.card-header {
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f1f5f9;
+}
+.card-header h3 {
+  margin: 0 0 0.25rem 0;
+  color: #1e293b;
+  font-size: 1.25rem;
+}
+.card-header p {
+  margin: 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
+/* Grid & Form */
+.info-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem 2rem;
+}
+
+.info-group.full-width {
+  grid-column: 1 / -1;
+}
+
+.info-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #475569;
+  margin-bottom: 0.5rem;
+}
+
+.info-value {
+  display: flex;
+  align-items: center;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  padding: 0.5rem 1rem;
+  transition: border-color 0.2s;
+}
+.info-value:focus-within {
+  border-color: #94a3b8;
+}
+
+.info-value .icon {
+  margin-right: 0.75rem;
+  font-size: 1.1rem;
+  opacity: 0.7;
+}
+
+.info-value input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  color: #0f172a;
+  font-weight: 500;
+  outline: none;
+  width: 100%;
+}
+.info-value input:read-only {
   color: #334155;
 }
-.loading-state {
-  padding: 1.5rem;
-  text-align: center;
-  color: #64748b;
-  font-size: 0.95rem;
+
+.status-badge {
+  background: #dcfce7;
+  color: #166534;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
 }
-@media (max-width: 640px) {
-  .form-grid {
+
+/* Footer Actions */
+.card-footer {
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+}
+
+.btn {
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.primary-btn {
+  background: #2563eb;
+  color: white;
+  border: none;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+.primary-btn:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.outline-btn {
+  background: transparent;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+.outline-btn:hover {
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+/* Loading state */
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 0;
+  color: #64748b;
+  gap: 1rem;
+}
+.spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid #e2e8f0;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+  .banner-content {
+    flex-direction: column;
+    align-items: center;
+    left: 0;
+    right: 0;
+    bottom: -6rem;
+    text-align: center;
+  }
+  .profile-banner {
+    margin-bottom: 8rem;
+  }
+  .info-grid {
     grid-template-columns: 1fr;
+  }
+  .card-footer {
+    flex-direction: column;
+  }
+  .btn {
+    width: 100%;
   }
 }
 </style>

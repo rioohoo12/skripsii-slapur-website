@@ -46,8 +46,6 @@ const menuItems = [
   { label: 'Nilai Siswa', icon: iconScore, to: '/guru/nilai' },
   { label: 'Tugas', icon: iconTask, to: '/guru/tugas' },
   { label: 'Materi', icon: iconBook, to: '/guru/materi' },
-  { label: 'Pengumuman', icon: iconMegaphone, to: '/guru/pengumuman' },
-  { label: 'Laporan / Rekap', icon: iconReport, to: '/guru/laporan' },
   { label: 'Profil Guru', icon: iconUser, to: '/guru/profile' },
 ];
 

@@ -40,8 +40,8 @@
         </div>
         <div class="stat-info">
           <p class="stat-label">Kehadiran</p>
-          <h3 class="stat-value">95%</h3>
-          <p class="stat-sub text-green-600 font-medium">Baik</p>
+          <h3 class="stat-value">{{ kehadiranRate }}</h3>
+          <p class="stat-sub text-green-600 font-medium">Real-time Data</p>
         </div>
       </div>
     </div>
@@ -69,35 +69,11 @@
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td>07:00 - 08:40</td>
-                <td>Matematika</td>
-                <td>Bu Siti Nurhaliza</td>
-                <td>R. 3.1</td>
-              </tr>
-              <tr>
-                <td>08:40 - 10:20</td>
-                <td>Bahasa Inggris</td>
-                <td>Pak Ahmad Ridho</td>
-                <td>R. 3.1</td>
-              </tr>
-              <tr>
-                <td>10:20 - 12:00</td>
-                <td>Fisika</td>
-                <td>Bu Eka Widhiastuti</td>
-                <td>R. 2.2</td>
-              </tr>
-              <tr>
-                <td>13:00 - 14:40</td>
-                <td>Kimia</td>
-                <td>Bu Siti Nurhaliza</td>
-                <td>R. 1.3</td>
-              </tr>
-              <tr>
-                <td>14:40 - 16:20</td>
-                <td>Biologi</td>
-                <td>Bu Eka Widhiastuti</td>
-                <td>R. 2.1</td>
+              <tr v-for="(cls, idx) in todaySchedule" :key="idx">
+                <td>{{ cls.time }}</td>
+                <td>{{ cls.subject }}</td>
+                <td>{{ cls.teacher }}</td>
+                <td>{{ cls.room }}</td>
               </tr>
             </tbody>
           </table>
@@ -173,28 +149,28 @@
                 stroke-dasharray="85, 100"
                 d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
               />
-              <text x="18" y="20.35" class="donut-text">85</text>
+              <text x="18" y="20.35" class="donut-text">{{ progress.total }}</text>
             </svg>
             <div class="chart-center-text">
               <span class="sks-label" style="display:block; font-size:1.5rem;">Nilai</span>
-              <span class="sks-value" style="font-size:0.8rem;">Rata-rata 85</span>
+              <span class="sks-value" style="font-size:0.8rem;">Rata-rata {{ progress.total }}</span>
             </div>
           </div>
           <div class="chart-legend">
             <div class="legend-item">
               <div class="legend-dot bg-blue-500"></div>
               <span class="legend-label">Ujian Harian</span>
-              <span class="legend-value">85</span>
+              <span class="legend-value">{{ progress.harian }}</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot bg-purple-500"></div>
-              <span class="legend-label">Tugas Sekolah</span>
-              <span class="legend-value">90</span>
+              <span class="legend-label">Tugas</span>
+              <span class="legend-value">{{ progress.tugas }}</span>
             </div>
             <div class="legend-item">
               <div class="legend-dot bg-orange-500"></div>
-              <span class="legend-label">Tugas Kelompok</span>
-              <span class="legend-value">80</span>
+              <span class="legend-label">Mid & Final</span>
+              <span class="legend-value">{{ progress.ujian }}</span>
             </div>
             <a href="#" class="view-all-link text-center mt-2">Lihat detail progress →</a>
           </div>
@@ -211,34 +187,14 @@
         </div>
         <div class="card-body">
           <div class="activity-list">
-            <div class="activity-item">
-              <div class="activity-icon bg-emerald-100 text-emerald-600">✓</div>
-              <div class="activity-content">
-                <p class="act-title">Mengikuti Ujian Harian Matematika</p>
-                <p class="act-time">Hari ini, 07:00</p>
-              </div>
-            </div>
-            <div class="activity-item">
+            <div class="activity-item" v-for="tugas in assignments" :key="tugas.id">
               <div class="activity-icon bg-blue-100 text-blue-600">📄</div>
               <div class="activity-content">
-                <p class="act-title">Mengumpulkan Tugas Kelompok Fisika</p>
-                <p class="act-time">Kemarin, 14:32</p>
+                <p class="act-title">{{ tugas.title }} - {{ tugas.subject_name }}</p>
+                <p class="act-time">Tenggat: {{ tugas.due_date ? new Date(tugas.due_date).toLocaleDateString('id-ID') : 'Tidak ada' }}</p>
               </div>
             </div>
-            <div class="activity-item">
-              <div class="activity-icon bg-purple-100 text-purple-600">📋</div>
-              <div class="activity-content">
-                <p class="act-title">Meminjam buku di Perpustakaan</p>
-                <p class="act-time">1 Sep 2025, 10:15</p>
-              </div>
-            </div>
-            <div class="activity-item">
-              <div class="activity-icon bg-orange-100 text-orange-600">💰</div>
-              <div class="activity-content">
-                <p class="act-title">Membayar uang Kas Kelas</p>
-                <p class="act-time">28 Agu 2025, 16:20</p>
-              </div>
-            </div>
+            <div v-if="!assignments.length" class="text-sm text-gray-500 text-center py-4">Belum ada tugas terbaru.</div>
           </div>
         </div>
       </div>
@@ -265,15 +221,80 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
+import { authApi } from '@/api/auth';
 
 const user = ref({});
+const attendances = ref([]);
+const scores = ref([]);
+const assignments = ref([]);
 
-onMounted(() => {
+// Jadwal Pelajaran (Sinkron dengan data statis di JadwalPelajaran.vue untuk hari Senin)
+const todaySchedule = ref([
+  { time: '08:00 - 10:00', subject: 'Biologi', teacher: 'Guru', room: 'R. 1' },
+  { time: '10:15 - 11:45', subject: 'Matematika', teacher: 'Guru', room: 'R. 2' },
+  { time: '12:30 - 14:00', subject: 'Bahasa Indonesia', teacher: 'Guru', room: 'R. 3' },
+]);
+
+const kehadiranRate = computed(() => {
+  if (attendances.value.length === 0) return '100%';
+  const hadir = attendances.value.filter(a => a.status === 'Hadir').length;
+  return Math.round((hadir / attendances.value.length) * 100) + '%';
+});
+
+const progress = computed(() => {
+  if (scores.value.length === 0) return { harian: 0, tugas: 0, ujian: 0, total: 0 };
+  let h = 0, t = 0, u = 0, total = 0, count = 0;
+  scores.value.forEach(s => {
+    let nh = parseFloat(s.nilai_harian) || 0;
+    let nt = parseFloat(s.nilai_tugas) || 0;
+    let nq = parseFloat(s.nilai_quiz) || 0;
+    let nm = parseFloat(s.nilai_mid) || 0;
+    let nf = parseFloat(s.nilai_final) || 0;
+    
+    h += nh;
+    t += nt;
+    u += (nm + nf) / 2; // Rata-rata ujian
+    
+    let sum = nh + nt + nq + nm + nf;
+    let c = [s.nilai_harian, s.nilai_tugas, s.nilai_quiz, s.nilai_mid, s.nilai_final].filter(v => v !== null).length;
+    if (c > 0) {
+      total += (sum / c);
+      count++;
+    }
+  });
+  
+  return {
+    harian: Math.round(h / scores.value.length) || 0,
+    tugas: Math.round(t / scores.value.length) || 0,
+    ujian: Math.round(u / scores.value.length) || 0,
+    total: count > 0 ? Math.round(total / count) : 0
+  };
+});
+
+onMounted(async () => {
   try {
     user.value = JSON.parse(localStorage.getItem('user') || '{}');
   } catch (e) {
     user.value = {};
+  }
+  
+  try {
+    // Fetch Absensi
+    const resAbsensi = await authApi.fetch('/siswa/absensi');
+    if (resAbsensi.attendances) attendances.value = resAbsensi.attendances;
+
+    // Fetch Scores
+    const resScores = await authApi.fetch('/siswa/scores');
+    if (resScores.scores) scores.value = resScores.scores;
+    
+    // Fetch Tugas
+    const resTugas = await authApi.fetch('/siswa/tugas');
+    if (resTugas.assignments) {
+      assignments.value = resTugas.assignments.slice(0, 4); // Ambil 4 tugas terbaru untuk dashboard
+    }
+  } catch (e) {
+    console.error('Error fetching dashboard data:', e);
   }
 });
 </script>

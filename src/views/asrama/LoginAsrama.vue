@@ -43,7 +43,7 @@
       <p class="login-footer">
         <router-link to="/siswa" class="link">Login Siswa</router-link>
         <span class="sep"> · </span>
-        <router-link to="/staff" class="link">Login Staff</router-link>
+        <router-link to="/administrasi" class="link">Login Staff</router-link>
       </p>
     </div>
   </div>
@@ -53,8 +53,10 @@
 import { reactive, ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/auth';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const form = reactive({ email: '', password: '' });
 const loading = ref(false);
 const loadingLong = ref(false);
@@ -88,16 +90,13 @@ async function handleLogin() {
   errorMsg.value = '';
   loading.value = true;
   try {
-    // We can reuse loginStaff or regular login as long as the backend auth logic handles it. 
-    // loginStaff in authApi just posts to /auth/login.
     const res = await authApi.loginStaff(form.email.trim(), form.password);
     
     if (!['staff_asrama', 'admin', 'super_admin'].includes(res.user.role)) {
        throw new Error('Anda tidak memiliki akses sebagai Staff Asrama.');
     }
     
-    authApi.setToken(res.token);
-    if (res.user) localStorage.setItem('user', JSON.stringify(res.user));
+    authStore.setAuth(res.token, res.user);
     router.push('/asrama/dashboard');
   } catch (e) {
     const msg = e?.message || '';

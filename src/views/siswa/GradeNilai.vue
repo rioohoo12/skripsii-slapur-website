@@ -13,26 +13,33 @@
                 <th class="col-no">No.</th>
                 <th>Mata Pelajaran</th>
                 <th class="col-nilai">Tugas</th>
-                <th class="col-nilai">UTS</th>
-                <th class="col-nilai">UAS</th>
+                <th class="col-nilai">Quiz</th>
+                <th class="col-nilai">Harian</th>
+                <th class="col-nilai">Mid Sem</th>
+                <th class="col-nilai">Final Sem</th>
                 <th class="col-nilai">Nilai Akhir</th>
                 <th class="col-grade">Grade</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="(row, i) in daftarNilai" :key="i">
+              <tr v-if="loading">
+                <td colspan="9" class="text-center" style="padding: 2rem;">Memuat nilai...</td>
+              </tr>
+              <tr v-else-if="!daftarNilai.length" class="empty-row">
+                <td colspan="9">Belum ada data nilai</td>
+              </tr>
+              <tr v-else v-for="(row, i) in daftarNilai" :key="i">
                 <td class="col-no">{{ i + 1 }}</td>
                 <td>{{ row.mataPelajaran }}</td>
                 <td class="col-nilai">{{ row.tugas }}</td>
-                <td class="col-nilai">{{ row.uts }}</td>
-                <td class="col-nilai">{{ row.uas }}</td>
+                <td class="col-nilai">{{ row.quiz }}</td>
+                <td class="col-nilai">{{ row.harian }}</td>
+                <td class="col-nilai">{{ row.mid }}</td>
+                <td class="col-nilai">{{ row.final }}</td>
                 <td class="col-nilai">{{ row.nilaiAkhir }}</td>
                 <td class="col-grade">
                   <span class="badge-grade" :class="[themeClass, gradeClass(row.grade)]">{{ row.grade }}</span>
                 </td>
-              </tr>
-              <tr v-if="!daftarNilai.length" class="empty-row">
-                <td colspan="7">Belum ada data nilai</td>
               </tr>
             </tbody>
           </table>
@@ -67,15 +74,60 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import PageCard from '@/components/PageCard.vue';
+import { authApi } from '@/api/auth';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 
 const tahunSemester = ref('2025/2026 - GENAP');
-// Data kosong – gambaran tampilan (isi dari API nanti)
 const daftarNilai = ref([]);
+const loading = ref(false);
+
+const loadScores = async () => {
+  loading.value = true;
+  try {
+    const res = await authApi.fetch('/siswa/scores');
+    daftarNilai.value = (res.scores || []).map(s => {
+      const tugas = parseFloat(s.nilai_tugas) || 0;
+      const quiz = parseFloat(s.nilai_quiz) || 0;
+      const harian = parseFloat(s.nilai_harian) || 0;
+      const mid = parseFloat(s.nilai_mid) || 0;
+      const final = parseFloat(s.nilai_final) || 0;
+      
+      // Hitung nilai akhir (contoh: rata-rata atau bobot tertentu, di sini rata-rata rata)
+      const count = [s.nilai_tugas, s.nilai_quiz, s.nilai_harian, s.nilai_mid, s.nilai_final].filter(v => v !== null).length;
+      let sum = tugas + quiz + harian + mid + final;
+      const nilaiAkhir = count > 0 ? (sum / count) : 0;
+      
+      let grade = 'E';
+      if (nilaiAkhir >= 85) grade = 'A';
+      else if (nilaiAkhir >= 75) grade = 'B';
+      else if (nilaiAkhir >= 60) grade = 'C';
+      else if (nilaiAkhir >= 50) grade = 'D';
+      
+      return {
+        mataPelajaran: s.subject_name || 'Tidak Diketahui',
+        tugas: s.nilai_tugas !== null ? s.nilai_tugas : '-',
+        quiz: s.nilai_quiz !== null ? s.nilai_quiz : '-',
+        harian: s.nilai_harian !== null ? s.nilai_harian : '-',
+        mid: s.nilai_mid !== null ? s.nilai_mid : '-',
+        final: s.nilai_final !== null ? s.nilai_final : '-',
+        nilaiAkhir: nilaiAkhir.toFixed(2),
+        grade
+      };
+    });
+  } catch (error) {
+    console.error('Gagal memuat nilai:', error);
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(() => {
+  loadScores();
+});
 
 const rataRataNilai = computed(() => {
   if (!daftarNilai.value.length) return '-';

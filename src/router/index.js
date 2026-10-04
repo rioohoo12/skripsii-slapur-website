@@ -54,16 +54,16 @@ const routes = [
     ],
   },
   {
-    path: '/staff',
-    redirect: '/staff/login'
+    path: '/administrasi',
+    redirect: '/administrasi/login'
   },
   {
-    path: '/staff/login',
+    path: '/administrasi/login',
     name: 'LoginStaff',
     component: () => import('@/views/administrasi/LoginAdministrasi.vue'),
   },
   {
-    path: '/staff',
+    path: '/administrasi',
     component: () => import('@/views/administrasi/AdministrasiLayout.vue'),
     children: [
       { path: 'dashboard', name: 'DashboardStaff', component: () => import('@/views/administrasi/DashboardAdministrasi.vue') },
@@ -122,6 +122,7 @@ const routes = [
       { path: 'keuangan', name: 'Keuangan', component: () => import('@/views/siswa/Keuangan.vue') },
       { path: 'kafetaria', name: 'Kafetaria', component: () => import('@/views/siswa/Kafetaria.vue') },
       { path: 'absensi', name: 'Absensi', component: () => import('@/views/siswa/Absensi.vue') },
+      { path: 'materi', name: 'SiswaMateri', component: () => import('@/views/siswa/SiswaMateri.vue') },
       { path: 'tugas', name: 'Tugas', component: () => import('@/views/siswa/SiswaTugas.vue') },
       { path: 'data-kelas', name: 'DataKelas', component: () => import('@/views/siswa/DataKelas.vue') },
       { path: 'data-kelas/review', name: 'ReviewKelas', component: () => import('@/views/siswa/ReviewKelas.vue') },
@@ -227,18 +228,18 @@ router.beforeEach((to, _from, next) => {
     return;
   }
 
-  const toStaff = to.path.startsWith('/staff');
+  const toStaff = to.path.startsWith('/administrasi');
   if (toStaff) {
-    if (to.path === '/staff/login' && isLoggedIn && isAdministrasiRole) {
-      next('/staff/dashboard');
+    if (to.path === '/administrasi/login' && isLoggedIn && isAdministrasiRole) {
+      next('/administrasi/dashboard');
       return;
     }
-    if (to.path !== '/staff/login' && !isLoggedIn) {
-      next('/staff/login');
+    if (to.path !== '/administrasi/login' && !isLoggedIn) {
+      next('/administrasi/login');
       return;
     }
-    if (to.path !== '/staff/login' && !isAdministrasiRole) {
-      next('/staff/login');
+    if (to.path !== '/administrasi/login' && !isAdministrasiRole) {
+      next('/administrasi/login');
       return;
     }
     next();
@@ -275,7 +276,7 @@ router.beforeEach((to, _from, next) => {
         return;
       }
       if (isStaffRole) {
-        next('/staff/dashboard');
+        next('/administrasi/dashboard');
         return;
       }
       if (isAsramaStaff) {

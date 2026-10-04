@@ -39,23 +39,7 @@
 
       <article class="panel-card">
         <div class="panel-head">
-          <h3>Pengumuman Sekolah</h3>
-          <router-link to="/guru/pengumuman" class="panel-link">Lihat Semua</router-link>
-        </div>
-        <ul class="announce-list">
-          <li v-for="item in announcements" :key="item.title">
-            <p class="title">{{ item.title }}</p>
-            <p class="meta">{{ item.date }}</p>
-          </li>
-        </ul>
-      </article>
-    </section>
-
-    <section class="content-grid">
-      <article class="panel-card">
-        <div class="panel-head">
           <h3>Aktivitas Terbaru</h3>
-          <router-link to="/guru/laporan" class="panel-link">Detail</router-link>
         </div>
         <ul class="activity-list">
           <li v-for="item in activities" :key="item.text">
@@ -63,18 +47,6 @@
             <p class="meta">{{ item.time }}</p>
           </li>
         </ul>
-      </article>
-
-      <article class="panel-card">
-        <div class="panel-head">
-          <h3>Menu Akses Cepat</h3>
-        </div>
-        <div class="quick-grid">
-          <router-link to="/guru/kelas" class="quick-link">Lihat Mahasiswa / Siswa</router-link>
-          <router-link to="/guru/kelas" class="quick-link">Lihat Kelas Saya</router-link>
-          <router-link to="/guru/laporan" class="quick-link">Isi Laporan</router-link>
-          <router-link to="/guru/materi" class="quick-link">Akses Lab</router-link>
-        </div>
       </article>
     </section>
   </div>
@@ -91,12 +63,20 @@ const user = computed(() => {
   }
 });
 
-const statCards = [
-  { label: 'Jumlah Siswa yang Diajar', value: '192', sub: 'Total siswa aktif semester ini' },
-  { label: 'Jumlah Kelas yang Diampu', value: '6', sub: 'Kelas aktif yang diajar' },
-  { label: 'Jumlah Laporan Dibuat', value: '14', sub: 'Laporan akademik yang sudah dibuat' },
-  { label: 'Lab / Praktikum Aktif', value: '3', sub: 'Sesi praktikum berjalan minggu ini' },
-];
+const statCards = computed(() => {
+  const jenjang = user.value?.jenjang_guru;
+  let numClasses = 0;
+  if (jenjang === 'smp' || jenjang === 'sma') {
+    numClasses = 3;
+  } else if (jenjang === 'smp_sma') {
+    numClasses = 6;
+  }
+
+  return [
+    { label: 'Jumlah Kelas yang Diampu', value: numClasses.toString(), sub: 'Sesuai jenjang mengajar Anda' },
+    { label: 'Jumlah Siswa yang Diajar', value: '192', sub: 'Estimasi total siswa aktif semester ini' },
+  ];
+});
 
 const todaySchedule = computed(() => {
   const u = user.value;
@@ -208,7 +188,7 @@ const activities = [
 }
 .stats-grid {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.9rem;
 }
 .stat-card {

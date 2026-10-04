@@ -63,6 +63,7 @@ const menuItems = computed(() => {
     { path: `/siswa/${jenisKelamin.value}/pendaftaran/status`, label: 'Pendaftaran', icon: '📋', locked: false },
     { path: `/siswa/${jenisKelamin.value}/grade`, label: 'Nilai', icon: '📊', locked: !isComplete },
     { path: `/siswa/${jenisKelamin.value}/absensi`, label: 'Presensi', icon: '✅', locked: false },
+    { path: `/siswa/${jenisKelamin.value}/materi`, label: 'Materi', icon: '📚', locked: false },
     { path: `/siswa/${jenisKelamin.value}/tugas`, label: 'Tugas', icon: '📝', locked: false },
     { path: `/siswa/${jenisKelamin.value}/keuangan`, label: 'Tagihan', icon: '💰', locked: !isComplete },
     { path: `/siswa/${jenisKelamin.value}/biodata`, label: 'Profil', icon: '👤', locked: false },

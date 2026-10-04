@@ -78,16 +78,27 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'indexGuru']);
         Route::post('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'storeGuru']);
         Route::get('tugas/{id}/submissions', [\App\Http\Controllers\Api\AssignmentController::class, 'submissions']);
+        Route::post('tugas/{id}/grade', [\App\Http\Controllers\Api\AssignmentController::class, 'gradeSubmissions']);
         
         // Absensi Guru
         Route::post('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'storeGuru']);
         Route::get('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'getGuruByDate']);
+        
+        // Nilai Guru
+        Route::get('scores/{tingkat}', [\App\Http\Controllers\Api\StudentScoreController::class, 'indexGuru']);
+        Route::post('scores/{tingkat}', [\App\Http\Controllers\Api\StudentScoreController::class, 'saveGuru']);
+        
+        // Materi Guru
+        Route::get('materials/{tingkat}', [\App\Http\Controllers\Api\MaterialController::class, 'getGuruMaterials']);
+        Route::post('materials', [\App\Http\Controllers\Api\MaterialController::class, 'storeGuru']);
     });
 
     Route::prefix('siswa')->middleware('role:siswa,admin,super_admin')->group(function () {
         Route::get('absensi', [\App\Http\Controllers\Api\AttendanceController::class, 'getSiswa']);
         Route::get('tugas', [\App\Http\Controllers\Api\AssignmentController::class, 'indexSiswa']);
         Route::post('tugas/{id}/submit', [\App\Http\Controllers\Api\AssignmentController::class, 'submitSiswa']);
+        Route::get('scores', [\App\Http\Controllers\Api\StudentScoreController::class, 'indexSiswa']);
+        Route::get('materials', [\App\Http\Controllers\Api\MaterialController::class, 'getSiswaMaterials']);
     });
 
     // --- Staff Asrama Routes (AsramaStaffController) ---

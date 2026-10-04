@@ -83,12 +83,63 @@ class AssignmentController extends Controller
         $submissions = AssignmentSubmission::with('siswa:id,name')
             ->where('assignment_id', $id)
             ->orderBy('created_at', 'desc')
-            ->get();
+            ->get()
+            ->map(function ($sub) {
+                if ($sub->file_path) {
+                    $sub->file_url = url('storage/' . $sub->file_path);
+                }
+                return $sub;
+            });
             
         return response()->json([
             'assignment' => $assignment,
             'submissions' => $submissions
         ]);
+    }
+
+    /**
+     * Guru: Beri nilai untuk submission
+     */
+    public function gradeSubmissions(Request $request, $id)
+    {
+        $guru_id = $request->user()->id;
+        $assignment = Assignment::where('guru_id', $guru_id)->findOrFail($id);
+        
+        $request->validate([
+            'grades' => 'required|array',
+            'grades.*.submission_id' => 'required|exists:assignment_submissions,id',
+            'grades.*.grade' => 'nullable|numeric|min:0|max:100',
+        ]);
+        
+        $subject = \App\Models\Subject::find($request->user()->subject_id);
+        $subject_name = $subject ? $subject->subject_name : 'Pelajaran';
+        
+        foreach ($request->grades as $data) {
+            $submission = AssignmentSubmission::where('assignment_id', $id)
+                ->where('id', $data['submission_id'])
+                ->first();
+                
+            if ($submission && $data['grade'] !== null) {
+                $submission->grade = $data['grade'];
+                $submission->status = 'graded';
+                $submission->save();
+                
+                // Sinkronisasi otomatis ke tabel student_scores (Nilai Tugas)
+                \App\Models\StudentScore::updateOrCreate(
+                    [
+                        'siswa_id' => $submission->siswa_id,
+                        'guru_id' => $guru_id,
+                        'subject_name' => $subject_name,
+                    ],
+                    [
+                        'tingkat' => $assignment->tingkat,
+                        'nilai_tugas' => $data['grade'],
+                    ]
+                );
+            }
+        }
+        
+        return response()->json(['message' => 'Nilai berhasil disimpan dan disinkronkan']);
     }
 
 
@@ -120,9 +171,13 @@ class AssignmentController extends Controller
             ->get()
             ->keyBy('assignment_id');
             
-        // Map assignments to include submission status
+        // Map assignments to include submission status and file URL
         $assignments = $assignments->map(function ($assignment) use ($submissions) {
-            $assignment->submission = $submissions->get($assignment->id);
+            $sub = $submissions->get($assignment->id);
+            if ($sub && $sub->file_path) {
+                $sub->file_url = url('storage/' . $sub->file_path);
+            }
+            $assignment->submission = $sub;
             return $assignment;
         });
 
@@ -138,24 +193,49 @@ class AssignmentController extends Controller
     public function submitSiswa(Request $request, $id)
     {
         $request->validate([
-            'content' => 'required|string',
+            'content' => 'nullable|string',
+            'file' => 'nullable|file|mimes:pdf,doc,docx|max:10240', // Max 10MB
         ]);
+        
+        // At least one must be present
+        if (empty($request->content) && !$request->hasFile('file')) {
+            return response()->json(['message' => 'Konten atau file wajib diisi'], 400);
+        }
         
         $siswa_id = $request->user()->id;
         
         // Cek apakah tugas ada
         $assignment = Assignment::findOrFail($id);
         
-        $submission = AssignmentSubmission::updateOrCreate(
-            [
+        $filePath = null;
+        $fileName = null;
+        if ($request->hasFile('file')) {
+            $file = $request->file('file');
+            $fileName = $file->getClientOriginalName();
+            $filePath = $file->store('assignments', 'public');
+        }
+        
+        $submission = AssignmentSubmission::where('assignment_id', $id)
+            ->where('siswa_id', $siswa_id)
+            ->first();
+            
+        if ($submission) {
+            $submission->content = $request->content;
+            if ($filePath) {
+                $submission->file_path = $filePath;
+                $submission->file_name = $fileName;
+            }
+            $submission->save();
+        } else {
+            $submission = AssignmentSubmission::create([
                 'assignment_id' => $id,
                 'siswa_id' => $siswa_id,
-            ],
-            [
                 'content' => $request->content,
+                'file_path' => $filePath,
+                'file_name' => $fileName,
                 'status' => 'submitted',
-            ]
-        );
+            ]);
+        }
         
         return response()->json([
             'message' => 'Tugas berhasil dikumpulkan',

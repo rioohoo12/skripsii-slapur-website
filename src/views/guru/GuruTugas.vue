@@ -94,33 +94,47 @@
         
         <div v-if="loadingSubmissions" class="loading-state">Memuat pengumpulan...</div>
         
-        <div class="table-wrap" v-else>
-          <table>
-            <thead>
-              <tr>
-                <th>No</th>
-                <th>Nama Siswa</th>
-                <th>Jawaban / Konten</th>
-                <th>Waktu Pengumpulan</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-if="taskSubmissions.length === 0">
-                <td colspan="4" class="text-center">Belum ada siswa yang mengumpulkan.</td>
-              </tr>
-              <tr v-for="(sub, idx) in taskSubmissions" :key="sub.id">
-                <td>{{ idx + 1 }}</td>
-                <td>{{ sub.siswa?.name || 'Anonim' }}</td>
-                <td class="text-pre-wrap">{{ sub.content }}</td>
-                <td>{{ new Date(sub.created_at).toLocaleString('id-ID') }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        
-        <div class="modal-actions" style="margin-top: 1rem;">
-          <button type="button" class="btn-cancel" @click="showSubmissionsModal = false">Tutup</button>
-        </div>
+          <form @submit.prevent="saveGrades">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>No</th>
+                    <th>Nama Siswa</th>
+                    <th>Jawaban / Konten (Teks)</th>
+                    <th>File Jawaban</th>
+                    <th>Waktu Pengumpulan</th>
+                    <th>Beri Nilai (0-100)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-if="taskSubmissions.length === 0">
+                    <td colspan="6" class="text-center">Belum ada siswa yang mengumpulkan.</td>
+                  </tr>
+                  <tr v-for="(sub, idx) in taskSubmissions" :key="sub.id">
+                    <td>{{ idx + 1 }}</td>
+                    <td>{{ sub.siswa?.name || 'Anonim' }}</td>
+                    <td class="text-pre-wrap">{{ sub.content || '-' }}</td>
+                    <td>
+                      <a v-if="sub.file_url" :href="sub.file_url" target="_blank" class="download-link">📄 Lihat File</a>
+                      <span v-else>-</span>
+                    </td>
+                    <td>{{ new Date(sub.created_at).toLocaleString('id-ID') }}</td>
+                    <td>
+                      <input type="number" step="0.01" min="0" max="100" v-model="sub.grade" class="score-input" placeholder="Belum Dinilai">
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            
+            <div class="modal-actions" style="margin-top: 1rem;">
+              <button type="button" class="btn-cancel" @click="showSubmissionsModal = false">Batal</button>
+              <button type="submit" class="primary-btn" :disabled="savingGrades">
+                {{ savingGrades ? 'Menyimpan...' : 'Simpan Nilai' }}
+              </button>
+            </div>
+          </form>
       </div>
     </div>
   </div>
@@ -227,6 +241,33 @@ const viewSubmissions = async (task) => {
   }
 };
 
+const savingGrades = ref(false);
+
+const saveGrades = async () => {
+  savingGrades.value = true;
+  try {
+    const payload = {
+      grades: taskSubmissions.value.map(s => ({
+        submission_id: s.id,
+        grade: s.grade !== '' && s.grade !== null && s.grade !== undefined ? s.grade : null
+      }))
+    };
+    
+    await authApi.fetch(`/guru/tugas/${activeTask.value.id}/grade`, {
+      method: 'POST',
+      body: JSON.stringify(payload)
+    });
+    
+    alert('Nilai berhasil disimpan! Nilai juga telah otomatis disinkronkan ke tabel Nilai Siswa (Nilai Tugas).');
+    showSubmissionsModal.value = false;
+  } catch (error) {
+    console.error("Gagal menyimpan nilai", error);
+    alert('Terjadi kesalahan saat menyimpan nilai.');
+  } finally {
+    savingGrades.value = false;
+  }
+};
+
 onMounted(() => {
   initAvailableClasses();
   loadAssignments();
@@ -288,4 +329,7 @@ td { padding: 0.75rem 1rem; border-bottom: 1px solid #e2e8f0; color: #1e293b; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 0.75rem; }
 .btn-cancel { background: white; border: 1px solid #cbd5e1; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; }
 .btn-cancel:hover { background: #f8fafc; }
+
+.download-link { color: #2563eb; font-weight: 500; text-decoration: none; font-size: 0.875rem; }
+.download-link:hover { text-decoration: underline; color: #1d4ed8; }
 </style>
