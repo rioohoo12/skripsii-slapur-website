@@ -3,126 +3,158 @@
 namespace App\Services\Chatbot;
 
 use App\Models\ChatMessage;
+use App\Models\ChatSession;
+use App\Models\User;
 use App\Services\Chatbot\Session\SessionManager;
-use App\Services\ChatbotCoreService; // Existing internal NLP service from Sprint 2
-use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class ChatbotService
 {
-    protected $sessionManager;
-    protected $nlpEngine;
-    protected $llmFallback;
-
-    public function __construct(SessionManager $sessionManager, ChatbotCoreService $nlpEngine, \App\Services\Chatbot\Fallback\LLMFallback $llmFallback)
-    {
-        $this->sessionManager = $sessionManager;
-        $this->nlpEngine = $nlpEngine;
-        $this->llmFallback = $llmFallback;
-    }
+    public function __construct(
+        protected GuardrailService $guardrail,
+        protected PreprocessingService $preprocessor,
+        protected IntentRouter $router,
+        protected LocalDataResolver $localDataResolver,
+        protected FormAssistant $formAssistant,
+        protected PromptBuilder $promptBuilder,
+        protected OpenAIService $openAI,
+        protected PostprocessingService $postprocessor,
+        protected SessionManager $sessionManager
+    ) {}
 
     /**
-     * Orchestrator to handle incoming chat messages.
+     * Primary orchestrator for handling user messages.
      */
-    public function handle(?string $sessionId, string $text, ?int $userId = null)
+    public function handleMessage(string $messageText, ?string $sessionId = null, ?User $user = null): array
     {
         $startTime = microtime(true);
+        $role = strtolower($user?->role ?? 'umum');
 
-        // 1. Session Management
-        $session = $this->sessionManager->getOrCreateSession($sessionId, $userId);
-        $context = $this->sessionManager->getRecentContext($session);
-        
+        // 1. Guardrail Validation (Keamanan & Batasan Input)
+        $guardCheck = $this->guardrail->validate($messageText);
+        if (!$guardCheck['is_valid']) {
+            return [
+                'session_id' => $sessionId ?: Str::uuid()->toString(),
+                'reply' => $guardCheck['reason'],
+                'intent' => 'blocked',
+                'source' => 'guardrail',
+                'slots' => [],
+            ];
+        }
+
+        // 2. Session Management
+        $session = $this->sessionManager->getOrCreateSession($sessionId, $user?->id);
+        $session->update(['role' => $role]);
+
         $currentSlots = json_decode($session->slots, true) ?: [];
+        $history = $this->sessionManager->getRecentContext($session, 5);
 
-        // Save User Message
-        $userMsg = ChatMessage::create([
+        // 3. Preprocessing (Cleaning & Intent Detection)
+        $prep = $this->preprocessor->preprocess($messageText);
+        $intent = $prep['intent'];
+
+        // Save User Message Log
+        ChatMessage::create([
             'session_id' => $session->session_id,
             'role' => 'user',
-            'text' => $text,
-            'source' => 'user'
+            'sender_type' => 'user',
+            'message' => $messageText,
+            'pesan' => $messageText,
+            'intent' => $intent,
+            'source' => 'user',
+            'sumber' => 'user',
         ]);
 
-        // 2. Preprocessing & NLU (Delegating to NLP Engine)
-        $nlpResult = $this->nlpEngine->processMessage($text, ['awaiting_slot' => $session->current_step]);
-        $intent = $nlpResult['intent'] ?? 'tidak_dikenali';
-        $entities = $nlpResult['entities'] ?? [];
-        $confidence = $nlpResult['confidence'] ?? 0.85; // Default simulasi
-        
-        // Cek Confidence Threshold
-        if ($confidence < config('chatbot.confidence_threshold', 0.6)) {
-            $intent = 'tidak_dikenali';
+        // 4. Intent Routing
+        $route = $this->router->route($intent, $messageText, $user, $currentSlots);
+        $replyText = '';
+        $source = 'local';
+        $tokens = 0;
+
+        switch ($route['type']) {
+            case 'action':
+                // Form Assistant Slot Filling (Pendaftaran)
+                $formResult = $this->formAssistant->getResponse($history, $messageText, $currentSlots);
+                $replyText = $formResult['reply'];
+                $intent = $formResult['intent'];
+                $currentSlots = $formResult['slots'];
+                $source = 'action';
+                break;
+
+            case 'local_data':
+                $replyText = $route['resolved_data']['summary'];
+                $source = 'local_db';
+                break;
+
+            case 'faq':
+                $replyText = $route['answer'];
+                $source = 'knowledge_base';
+                break;
+
+            case 'llm':
+            default:
+                // Resolve local data context if available
+                $localContext = $this->localDataResolver->resolve($intent, $user, $currentSlots);
+                $systemPrompt = $this->promptBuilder->build($user, $localContext);
+
+                // Call OpenAI with 10s timeout & 2 retries
+                $llmResult = $this->openAI->generateResponse($systemPrompt, $messageText, $history);
+
+                if ($llmResult['success'] && !empty($llmResult['reply'])) {
+                    $replyText = $llmResult['reply'];
+                    $source = 'llm';
+                    $tokens = $llmResult['tokens'];
+                } else {
+                    // Fallback message when OpenAI API is unconfigured/down/timeout
+                    $replyText = $this->getFallbackMessage($messageText, $intent);
+                    $source = 'fallback';
+                }
+                break;
         }
 
-        // Merge Entities to Slots
-        foreach ($entities as $k => $v) {
-            $currentSlots[$k] = $v;
-        }
+        // 5. Postprocessing (Sanitization & Filtering)
+        $cleanReply = $this->postprocessor->process($replyText);
 
-        $source = 'nlp';
-        
-        // 3. Dialog Management
-        if ($intent === 'tidak_dikenali') {
-            $replyText = $this->llmFallback->generateResponse($text, $context);
-            $action = null;
-            $source = 'gpt';
-        } else {
-            $flowResult = $this->routeToFlow($session, $intent, $currentSlots, $text);
-            $replyText = $flowResult['reply'];
-            $action = $flowResult['action'] ?? null;
-        }
+        // 6. Update Session State
+        $this->sessionManager->updateState(
+            $session,
+            $session->current_flow ?: 'default',
+            $session->current_step ?: 'init',
+            $currentSlots
+        );
 
-        // 4. Update Session State
-        $this->sessionManager->updateState($session, $session->current_flow, $session->current_step, $currentSlots);
-
-        // 5. Response & Logging
         $latencyMs = round((microtime(true) - $startTime) * 1000);
 
-        $botMsg = ChatMessage::create([
+        // 7. Save Assistant Message Log
+        ChatMessage::create([
             'session_id' => $session->session_id,
-            'role' => 'bot',
-            'text' => $replyText,
+            'role' => 'assistant',
+            'sender_type' => 'bot',
+            'message' => $cleanReply,
+            'pesan' => $messageText,
+            'respons' => $cleanReply,
             'intent' => $intent,
-            'confidence' => $confidence,
-            'entities' => json_encode($entities),
             'source' => $source,
-            'latency_ms' => $latencyMs
+            'sumber' => $source,
+            'tokens' => $tokens,
+            'latency_ms' => $latencyMs,
         ]);
 
         return [
             'session_id' => $session->session_id,
-            'reply' => $replyText,
+            'reply' => $cleanReply,
             'intent' => $intent,
-            'action' => $action
+            'source' => $source,
+            'slots' => $currentSlots,
         ];
     }
 
-    protected function routeToFlow($session, $intent, &$slots, $text)
+    /**
+     * Fallback message when LLM/API is unavailable or times out.
+     */
+    protected function getFallbackMessage(string $message, string $intent): string
     {
-        // Simple router logic that would normally map to Dialog\Flows\*
-        if ($intent === 'mulai_daftar' || $session->current_flow === 'registration') {
-            $session->current_flow = 'registration';
-            $flow = app()->make(\App\Services\Chatbot\Dialog\Flows\RegistrationFlow::class);
-            $result = $flow->handle($session, $intent, $slots, $text);
-            return $result;
-        }
-        
-        if ($intent === 'bayar' || $session->current_flow === 'payment') {
-            $session->current_flow = 'payment';
-            $flow = app()->make(\App\Services\Chatbot\Dialog\Flows\PaymentFlow::class);
-            $result = $flow->handle($session, $intent, $slots, $text);
-            return $result;
-        }
-        
-        if ($intent === 'minta_staf') {
-            $session->status = 'handed_off';
-            return ['reply' => "Menghubungkan Anda ke staf admin..."];
-        }
-
-        if ($intent === 'tidak_dikenali' && config('chatbot.enable_llm_fallback')) {
-            // Fallback Logic
-            return ['reply' => "Maaf saya kurang paham. Anda bisa tanya seputar info pendaftaran."];
-        }
-
-        // Default FAQ
-        return ['reply' => "Info pendaftaran: Biaya 250rb, asrama tersedia. Ketik 'mulai daftar' untuk registrasi."];
+        return "Maaf, sistem AI kami sedang sibuk atau mengalami kendala koneksi. " .
+               "Anda tetap dapat menanyakan informasi seputar Pendaftaran (ketik \"daftar\"), Biaya, Asrama, atau ketik \"staf\" untuk terhubung dengan petugas.";
     }
 }

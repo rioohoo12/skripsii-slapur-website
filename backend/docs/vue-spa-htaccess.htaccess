@@ -1,0 +1,21 @@
+# .htaccess untuk Build Vue SPA (Folder dist/ atau public frontend)
+# Pastikan mod_rewrite aktif di Apache
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Jangan rewrite file atau direktori yang benar-benar ada
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  
+  # Alihkan semua request halaman lain ke index.html (SPA Fallback Route)
+  RewriteRule . /index.html [L]
+</IfModule>
+
+# Security & Caching Headers
+<IfModule mod_headers.c>
+  Header set X-Frame-Options "SAMEORIGIN"
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>

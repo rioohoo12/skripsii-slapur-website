@@ -1,12 +1,15 @@
 <template>
   <div class="app" :class="themeClass">
     <router-view />
+    <!-- Global Chatbot Widget -->
+    <ChatWidget />
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useRoute } from 'vue-router';
+import ChatWidget from '@/components/chatbot/ChatWidget.vue';
 
 const route = useRoute();
 const themeClass = computed(() => {

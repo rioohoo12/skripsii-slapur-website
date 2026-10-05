@@ -183,7 +183,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue';
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { pendaftaranApi } from '@/api/pendaftaran';
@@ -241,7 +241,38 @@ onMounted(() => {
     form.full_name = authStore.user.name || form.full_name;
     form.gender = authStore.user.jenis_kelamin || form.gender;
   }
+  
+  // Listen for chatbot slot updates
+  window.addEventListener('chatbot-slots', handleChatbotSlots);
 });
+
+onUnmounted(() => {
+  window.removeEventListener('chatbot-slots', handleChatbotSlots);
+});
+
+function handleChatbotSlots(e) {
+  const slots = e.detail;
+  if (!slots) return;
+  
+  const isValid = (val) => typeof val === 'string' && val.trim() !== '' && val !== '-' && val !== 'belum diisi';
+  
+  // Map slot chatbot kustom -> field formulir
+  if (isValid(slots.nama)) form.full_name = slots.nama;
+  if (isValid(slots.jenis_kelamin)) form.gender = slots.jenis_kelamin.toLowerCase();
+  if (isValid(slots.tempat_lahir)) form.tempat_lahir = slots.tempat_lahir;
+  if (isValid(slots.tanggal_lahir)) form.tanggal_lahir = slots.tanggal_lahir; // format YYYY-MM-DD
+  if (isValid(slots.agama)) form.agama = slots.agama;
+  if (isValid(slots.alamat)) form.alamat = slots.alamat;
+  if (isValid(slots.kelas)) form.kelas_yang_didaftar = String(slots.kelas);
+  if (isValid(slots.asal_sekolah)) form.previous_school_name = slots.asal_sekolah;
+  
+  // Data Orang Tua / Wali
+  if (isValid(slots.nama_ayah)) form.nama_ayah = slots.nama_ayah;
+  if (isValid(slots.pekerjaan_ayah)) form.pekerjaan_ayah = slots.pekerjaan_ayah;
+  if (isValid(slots.nama_ibu)) form.nama_ibu = slots.nama_ibu;
+  if (isValid(slots.pekerjaan_ibu)) form.pekerjaan_ibu = slots.pekerjaan_ibu;
+  if (isValid(slots.telepon)) form.no_telp_ortu = slots.telepon;
+}
 
 async function handleSubmit() {
   errorMsg.value = '';

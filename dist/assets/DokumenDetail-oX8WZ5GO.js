@@ -1,1 +1,0 @@
-import{_ as n}from"./_plugin-vue_export-helper-DlAUqK2U.js";import{c as t,a,l as o}from"./index-CfC0Xgkq.js";const s={},l={class:"p-6"};function r(c,e){return o(),t("div",l,[...e[0]||(e[0]=[a("h2",{class:"text-2xl font-bold"},"Halaman DokumenDetail.vue",-1),a("p",null,"Sedang dalam pengembangan.",-1)])])}const _=n(s,[["render",r]]);export{_ as default};

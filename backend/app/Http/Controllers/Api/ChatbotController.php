@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Services\Chatbot\ActionHandler;
 use App\Services\Chatbot\ChatMessageService;
 use App\Services\Chatbot\ChatbotService;
 use Illuminate\Http\JsonResponse;
@@ -13,7 +14,8 @@ class ChatbotController extends Controller
 {
     public function __construct(
         private ChatbotService $chatbotService,
-        private ChatMessageService $messageService
+        private ChatMessageService $messageService,
+        private ActionHandler $actionHandler
     ) {}
 
     private function ensureJsonInput(Request $request): void
@@ -27,6 +29,16 @@ class ChatbotController extends Controller
         }
     }
 
+    private function resolveUser(Request $request)
+    {
+        $user = $request->user();
+        if (!$user && $request->bearerToken()) {
+            $token = PersonalAccessToken::findToken($request->bearerToken());
+            $user = $token?->tokenable;
+        }
+        return $user;
+    }
+
     /**
      * POST /api/chatbot/message
      * Body: { "session_id": "...", "message": "..." }
@@ -36,19 +48,13 @@ class ChatbotController extends Controller
         $this->ensureJsonInput($request);
 
         $request->validate([
-            'message' => 'required|string|max:2000',
+            'message' => 'required|string|max:500',
             'session_id' => 'nullable|string|max:64',
         ]);
 
         $message = trim($request->input('message'));
         $sessionId = $request->input('session_id');
-
-        // Resolve user dari Bearer token
-        $user = $request->user();
-        if (!$user && $request->bearerToken()) {
-            $token = PersonalAccessToken::findToken($request->bearerToken());
-            $user = $token?->tokenable;
-        }
+        $user = $this->resolveUser($request);
 
         $result = $this->chatbotService->handleMessage($message, $sessionId, $user);
 
@@ -68,6 +74,29 @@ class ChatbotController extends Controller
         $messages = $this->messageService->getHistory($sessionId);
 
         return response()->json(['messages' => $messages]);
+    }
+
+    /**
+     * POST /api/chatbot/action/confirm
+     * Body: { "session_id": "...", "action": "pendaftaran" | "pembayaran", "data": {...} }
+     */
+    public function confirmAction(Request $request): JsonResponse
+    {
+        $this->ensureJsonInput($request);
+
+        $request->validate([
+            'action' => 'required|string|in:pendaftaran,pembayaran',
+            'data' => 'nullable|array',
+            'session_id' => 'nullable|string|max:64',
+        ]);
+
+        $user = $this->resolveUser($request);
+        $action = $request->input('action');
+        $data = $request->input('data', []);
+
+        $result = $this->actionHandler->handleConfirm($action, $data, $user);
+
+        return response()->json($result);
     }
 
     /**

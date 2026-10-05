@@ -8,4 +8,11 @@ use Illuminate\Database\Eloquent\Model;
 class ChatSession extends Model
 {
     use HasFactory;
+
+    protected $guarded = [];
+
+    public function messages()
+    {
+        return $this->hasMany(ChatMessage::class, 'session_id', 'session_id');
+    }
 }

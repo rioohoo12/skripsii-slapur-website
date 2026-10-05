@@ -7,61 +7,86 @@ use Illuminate\Support\Facades\Log;
 
 class OpenAIService
 {
-    private ?string $apiKey;
-    private string $model;
-    private string $baseUrl;
+    protected string $apiKey;
+    protected string $apiUrl = 'https://api.openai.com/v1/chat/completions';
+    protected string $model;
 
     public function __construct()
     {
-        $this->apiKey = config('services.openai.api_key', env('OPENAI_API_KEY'));
-        $this->model = config('services.openai.model', env('OPENAI_MODEL', 'gpt-4o-mini'));
-        $this->baseUrl = config('services.openai.base_url', 'https://api.openai.com/v1');
+        $this->apiKey = env('OPENAI_API_KEY', '');
+        $this->model = env('OPENAI_MODEL', 'gpt-4o-mini');
     }
 
     /**
-     * Memeriksa apakah OpenAI API Key dikonfigurasi.
+     * Send messages array to OpenAI Chat Completion API.
      */
-    public function isConfigured(): bool
+    public function generateResponse(string $systemPrompt, string $userMessage, array $history = []): array
     {
-        return !empty($this->apiKey) && strlen(trim($this->apiKey)) > 10;
-    }
-
-    /**
-     * Kirim permintaan penyelesaian chat ke OpenAI API.
-     */
-    public function generateCompletion(string $systemPrompt, string $userPrompt): ?string
-    {
-        if (!$this->isConfigured()) {
-            return null;
+        if (empty($this->apiKey) || $this->apiKey === 'your_openai_api_key_here') {
+            Log::info('OpenAI API Key not configured. Using rule-based fallback.');
+            return [
+                'success' => false,
+                'source' => 'local_fallback',
+                'reply' => null,
+                'tokens' => 0,
+            ];
         }
+
+        $messages = [
+            ['role' => 'system', 'content' => $systemPrompt],
+        ];
+
+        foreach ($history as $h) {
+            $role = ($h['role'] ?? 'user') === 'user' ? 'user' : 'assistant';
+            $content = $h['pesan'] ?? $h['message'] ?? $h['text'] ?? '';
+            if ($content) {
+                $messages[] = ['role' => $role, 'content' => $content];
+            }
+        }
+
+        $messages[] = ['role' => 'user', 'content' => $userMessage];
 
         try {
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . $this->apiKey,
                 'Content-Type' => 'application/json',
-            ])->timeout(15)->post("{$this->baseUrl}/chat/completions", [
+            ])
+            ->timeout(10)      // Timeout 10 detik
+            ->retry(2, 1000)   // Retry 2 kali dengan jeda 1 detik
+            ->post($this->apiUrl, [
                 'model' => $this->model,
-                'messages' => [
-                    ['role' => 'system', 'content' => $systemPrompt],
-                    ['role' => 'user', 'content' => $userPrompt],
-                ],
-                'temperature' => 0.7,
-                'max_tokens' => 800,
+                'messages' => $messages,
+                'temperature' => 0.3,
             ]);
 
             if ($response->successful()) {
-                $data = $response->json();
-                return $data['choices'][0]['message']['content'] ?? null;
+                $reply = $response->json('choices.0.message.content');
+                $tokens = $response->json('usage.total_tokens', 0);
+
+                return [
+                    'success' => true,
+                    'source' => 'llm',
+                    'reply' => trim($reply),
+                    'tokens' => $tokens,
+                ];
             }
 
-            Log::warning('OpenAI API Request Failed', [
-                'status' => $response->status(),
-                'body' => $response->body(),
-            ]);
-        } catch (\Throwable $e) {
-            Log::error('OpenAI Exception', ['error' => $e->getMessage()]);
-        }
+            Log::error('OpenAI API Call Failed: ' . $response->body());
+            return [
+                'success' => false,
+                'source' => 'fallback',
+                'reply' => null,
+                'tokens' => 0,
+            ];
 
-        return null;
+        } catch (\Exception $e) {
+            Log::error('OpenAI Exception: ' . $e->getMessage());
+            return [
+                'success' => false,
+                'source' => 'fallback',
+                'reply' => null,
+                'tokens' => 0,
+            ];
+        }
     }
 }

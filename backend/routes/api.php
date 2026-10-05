@@ -20,8 +20,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('chatbot')->group(function () {
-    Route::post('message', [\App\Http\Controllers\Api\ChatbotCoreController::class, 'message']);
+    Route::post('message', [\App\Http\Controllers\Api\ChatbotController::class, 'message']);
     Route::get('history', [\App\Http\Controllers\Api\ChatbotController::class, 'history']);
+    Route::post('action/confirm', [\App\Http\Controllers\Api\ChatbotController::class, 'confirmAction']);
     Route::post('clear', [\App\Http\Controllers\Api\ChatbotController::class, 'clear']);
 });
 
@@ -33,6 +34,10 @@ Route::prefix('v2/chat')->group(function () {
 
 Route::post('applicants', [ApplicantController::class, 'store']);
 Route::get('invoices/status/{nomorPendaftaran}', [InvoiceController::class, 'checkStatus']);
+
+// Payment & Webhook Endpoints
+Route::post('webhooks/midtrans', [\App\Http\Controllers\Api\PaymentController::class, 'webhook']);
+Route::post('v1/payments', [\App\Http\Controllers\Api\PaymentController::class, 'createTransaction']);
 
 Route::get('subjects', [\App\Http\Controllers\Api\SubjectController::class, 'index']);
 

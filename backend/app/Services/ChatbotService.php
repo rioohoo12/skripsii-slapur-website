@@ -47,24 +47,32 @@ KONTEKS BIAYA:
 {$fees}
 
 SLOT DATA SAAT INI:
-- nama_lengkap: {$currentSlots['nama_lengkap'] ?? 'belum diisi'}
-- usia: {$currentSlots['usia'] ?? 'belum diisi'}
+- nama: {$currentSlots['nama'] ?? 'belum diisi'}
+- alamat: {$currentSlots['alamat'] ?? 'belum diisi'}
+- asal_sekolah: {$currentSlots['asal_sekolah'] ?? 'belum diisi'}
+- jenis_kelamin: {$currentSlots['jenis_kelamin'] ?? 'belum diisi'}
+- nama_wali: {$currentSlots['nama_wali'] ?? 'belum diisi'}
+- telepon: {$currentSlots['telepon'] ?? 'belum diisi'}
 - email: {$currentSlots['email'] ?? 'belum diisi'}
-- no_hp: {$currentSlots['no_hp'] ?? 'belum diisi'}
+- tanggal_lahir: {$currentSlots['tanggal_lahir'] ?? 'belum diisi'}
 
 Keluarkan HANYA JSON murni dengan skema berikut, TANPA blok markdown ```json:
 {
   "intent": "faq" | "register" | "handoff" | "out_of_scope" | "summary_confirmation",
   "reply": "Pesan balasan Anda ke pengguna yang ramah",
   "slots": {
-    "nama_lengkap": "value",
-    "usia": "value",
+    "nama": "value",
+    "alamat": "value",
+    "asal_sekolah": "value",
+    "jenis_kelamin": "value",
+    "nama_wali": "value",
+    "telepon": "value",
     "email": "value",
-    "no_hp": "value"
+    "tanggal_lahir": "value"
   }
 }
 
-Jika intent adalah 'register', tanya data yang masih 'belum diisi' satu per satu dengan ramah. Jika semua wajib (nama, usia, no_hp) sudah terisi, ubah intent ke 'summary_confirmation' dan minta konfirmasi.
+Jika intent adalah 'register', tanya data pendaftaran yang masih 'belum diisi' secara bertahap dan natural seperti mengobrol. Jika semua data yang dibutuhkan sudah terisi, ubah intent ke 'summary_confirmation' dan minta konfirmasi.
 PROMPT;
 
         $messages = [
