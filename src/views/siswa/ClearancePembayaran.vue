@@ -1,45 +1,70 @@
 <template>
   <div class="clearance-pembayaran-page" :class="themeClass">
-    <h2 class="page-heading">Pembayaran Pendaftaran</h2>
-    <p class="page-subtitle">Status pembayaran pendaftaran (Diverifikasi Otomatis oleh Sistem AI secara Instan).</p>
-
-    <div class="content-layout">
-      <main class="content-main">
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-status">
-          <template #header>Status Pembayaran Pendaftaran</template>
-          <div class="status-body">
-            <div class="status-badge" :class="[themeClass, statusClass]">
-              {{ statusLabel }}
-            </div>
-            <p class="status-desc">{{ statusDesc }}</p>
-            
-            <div v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'" class="payment-upload flex flex-col gap-3">
-              <label class="upload-label" for="bukti_pembayaran">Upload Bukti Transfer (Gambar/PDF)</label>
-              <input type="file" id="bukti_pembayaran" accept="image/*" @change="onFileChange" :disabled="loadingPay" class="file-input" />
-              <button class="btn-pay" :disabled="loadingPay || !selectedFile" @click="handleUpload">
-                <span v-if="loadingPay" class="spinner"></span>
-                {{ loadingPay ? 'Mengupload...' : 'Upload & Simpan Bukti' }}
-              </button>
-              
-              <div class="mt-2 text-center text-sm font-semibold text-gray-500">ATAU</div>
-              
-              <button class="btn-chat-verify" @click="openChatbotVerification">
-                🤖 Verifikasi Instan via Chatbot AI
-              </button>
-            </div>
-            
-            <div v-else-if="statusPembayaran === 'menunggu' || statusPembayaran === 'pending'" class="payment-waiting">
-              <p>Bukti pembayaran telah diupload dan sedang diverifikasi oleh sistem.</p>
-              <a v-if="payment?.bukti_path" :href="`/storage/${payment.bukti_path}`" target="_blank" class="btn-secondary">Lihat Bukti yang Diupload</a>
-            </div>
+    <div class="chat-modal-window custom-chat-payment">
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="bot-info">
+          <div class="bot-avatar">🤖</div>
+          <div>
+            <h3>Asisten Pembayaran SLAPUR</h3>
+            <span class="online-status">● Berinteraksi Langsung</span>
           </div>
-        </PageCard>
+        </div>
+        <div class="header-actions">
+          <button @click="loadData" class="action-header-btn reset-btn" title="Refresh Status">
+            🔄 Refresh
+          </button>
+        </div>
+      </div>
 
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-rekening" v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'">
-          <template #header>Rekening Tujuan Transfer</template>
-          <div class="rekening-body">
-            <p class="rekening-desc">Silakan transfer biaya pendaftaran ke rekening resmi sekolah berikut:</p>
-            <div class="bank-list">
+      <!-- Messages Scroll Area -->
+      <div class="chat-messages-area" ref="messagesContainer">
+        
+        <!-- Welcome & Info Message -->
+        <div class="chat-message bot">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble">
+            Halo! 👋 Saya Asisten Pembayaran. Berikut adalah detail tagihan pendaftaran Anda:
+          </div>
+        </div>
+
+        <!-- Detail Pembayaran Message -->
+        <div class="chat-message bot">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble detail-bubble">
+            <div class="detail-title">Rincian Pembayaran Pendaftaran (60%)</div>
+            <table class="detail-table">
+              <tbody>
+                <tr>
+                  <td>Status</td>
+                  <td>
+                    <span class="status-badge" :class="statusClass">{{ statusLabel }}</span>
+                  </td>
+                </tr>
+                <tr>
+                  <td>Total Tagihan</td>
+                  <td><strong>{{ payment ? formatRp(payment.total_tagihan) : 'Rp 5.000.000' }}</strong></td>
+                </tr>
+                <tr>
+                  <td>Nominal Dibayar</td>
+                  <td><strong>{{ payment ? formatRp(payment.nominal_dibayar) : 'Rp 3.000.000' }}</strong></td>
+                </tr>
+                <tr v-if="payment?.verified_at">
+                  <td>Diverifikasi Pada</td>
+                  <td>{{ formatDate(payment.verified_at) }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Rekening Message if Belum Bayar -->
+        <div class="chat-message bot" v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble">
+            Silakan lakukan transfer ke salah satu rekening sekolah resmi berikut:
+            
+            <div class="bank-list mt-3">
               <div class="bank-item">
                 <div class="bank-logo">BCA</div>
                 <div class="bank-details">
@@ -48,7 +73,7 @@
                   <div class="rek-name">A.n. Sekolah SLA Purwodadi</div>
                 </div>
               </div>
-              <div class="bank-item">
+              <div class="bank-item mt-2">
                 <div class="bank-logo">BNI</div>
                 <div class="bank-details">
                   <div class="bank-name">Bank BNI</div>
@@ -57,80 +82,70 @@
                 </div>
               </div>
             </div>
-            <div class="rekening-note">
-              <em>* Pastikan untuk menyimpan struk atau bukti screenshot setelah melakukan transfer.</em>
+          </div>
+        </div>
+
+        <!-- Action / Status Message -->
+        <div class="chat-message bot">
+          <div class="msg-avatar">🤖</div>
+          <div class="msg-bubble" v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'">
+            Jika Anda sudah mentransfer, silakan upload bukti pembayaran (foto/PDF) menggunakan tombol di bawah ini.
+          </div>
+          <div class="msg-bubble" v-else-if="statusPembayaran === 'menunggu' || statusPembayaran === 'pending'">
+            ⏳ Bukti pembayaran Anda sedang diverifikasi oleh sistem. Silakan tunggu beberapa saat dan klik refresh.
+            <div class="mt-2" v-if="payment?.bukti_path">
+              <a :href="`/storage/${payment.bukti_path}`" target="_blank" class="btn-secondary">Lihat Bukti yang Diupload</a>
             </div>
           </div>
-        </PageCard>
-
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-detail">
-          <template #header>Detail Pembayaran</template>
-          <div class="detail-table-wrap">
-            <table class="detail-table">
-              <tbody>
-                <tr>
-                  <td class="label">Jenis</td>
-                  <td class="value">Pembayaran Pendaftaran (60%)</td>
-                </tr>
-                <tr>
-                  <td class="label">Total Tagihan</td>
-                  <td class="value">{{ payment ? formatRp(payment.total_tagihan) : 'Rp 5.000.000' }}</td>
-                </tr>
-                <tr>
-                  <td class="label">Nominal Dibayar (60%)</td>
-                  <td class="value">{{ payment ? formatRp(payment.nominal_dibayar) : 'Rp 3.000.000' }}</td>
-                </tr>
-                <tr>
-                  <td class="label">Verifikasi</td>
-                  <td class="value">{{ payment?.verified_at ? formatDate(payment.verified_at) : '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div class="msg-bubble success-bubble" v-else-if="statusPembayaran === 'terverifikasi'">
+            ✅ Selamat! Pembayaran pendaftaran Anda telah berhasil diverifikasi oleh sistem. Anda bisa melanjutkan ke langkah pendaftaran berikutnya.
           </div>
-        </PageCard>
-      </main>
+        </div>
 
-      <aside class="content-sidebar">
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-info">
-          <template #header>Informasi</template>
-          <ul class="info-list">
-            <li>Lakukan pembayaran pendaftaran sesuai nominal yang ditetapkan melalui transfer bank.</li>
-            <li>Setelah transfer, upload foto atau scan bukti transfer di form yang tersedia.</li>
-            <li>Sistem AI kami akan memverifikasi bukti pembayaran Anda secara instan (24/7).</li>
-          </ul>
-        </PageCard>
+        <!-- User Sent File Message -->
+        <div class="chat-message user" v-if="selectedFile">
+          <div class="msg-bubble user-bubble">
+            📎 <strong>File dipilih:</strong> {{ selectedFile.name }}
+          </div>
+        </div>
 
-        <PageCard :jenis-kelamin="jenisKelamin" class="card-tahun">
-          <template #header>Tahun Ajaran</template>
-          <select v-model="tahunSemester" class="select-tahun">
-            <option value="2025/2026 - GENAP">2025/2026 - GENAP</option>
-            <option value="2025/2026 - GANJIL">2025/2026 - GANJIL</option>
-            <option value="2024/2025 - GENAP">2024/2025 - GENAP</option>
-          </select>
-        </PageCard>
-      </aside>
+      </div>
+
+      <!-- Quick Actions / Input Area -->
+      <div class="chat-input-area" v-if="statusPembayaran === 'belum_bayar' || statusPembayaran === 'ditolak'">
+        <div class="upload-controls">
+          <input type="file" id="bukti_pembayaran" accept="image/*,.pdf" @change="onFileChange" class="hidden-input" ref="fileInput" />
+          <button class="opt-btn btn-pilih" @click="$refs.fileInput.click()" :disabled="loadingPay">
+            📎 Pilih File Bukti
+          </button>
+          
+          <button class="opt-btn btn-kirim" :disabled="loadingPay || !selectedFile" @click="handleUpload">
+            <span v-if="loadingPay" class="spinner"></span>
+            {{ loadingPay ? 'Mengupload...' : '🚀 Kirim Bukti' }}
+          </button>
+        </div>
+      </div>
+
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
-import PageCard from '@/components/PageCard.vue';
+import { ref, computed, onMounted, nextTick } from 'vue';
 import { pendaftaranApi } from '@/api/pendaftaran.js';
-import { paymentApi } from '@/api/payment.js';
 
 const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
 const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 
-const tahunSemester = ref('2025/2026 - GENAP');
 const payment = ref(null);
 const loadError = ref('');
 const loadingPay = ref(false);
+const messagesContainer = ref(null);
 
 const statusPembayaran = computed(() => payment.value?.status ?? 'belum_bayar');
 const statusLabel = computed(() => {
   if (statusPembayaran.value === 'terverifikasi') return 'Berhasil Bayar';
-  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Menunggu Pembayaran';
+  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Menunggu Verifikasi';
   return 'Belum Dibayar';
 });
 const statusClass = computed(() => {
@@ -138,19 +153,23 @@ const statusClass = computed(() => {
   if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'status-pending';
   return 'status-no';
 });
-const statusDesc = computed(() => {
-  if (statusPembayaran.value === 'terverifikasi') return 'Pembayaran pendaftaran Anda telah berhasil diverifikasi oleh AI.';
-  if (statusPembayaran.value === 'menunggu' || statusPembayaran.value === 'pending') return 'Menunggu verifikasi pembayaran oleh sistem AI...';
-  if (statusPembayaran.value === 'ditolak') return 'Bukti pembayaran ditolak oleh sistem AI, mohon periksa dan upload ulang.';
-  return 'Silakan upload bukti pembayaran pendaftaran (transfer bank).';
-});
 
 const selectedFile = ref(null);
+const fileInput = ref(null);
+
+function scrollToBottom() {
+  nextTick(() => {
+    if (messagesContainer.value) {
+      messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
+    }
+  });
+}
 
 function onFileChange(e) {
   const file = e.target.files[0];
   if (file) {
     selectedFile.value = file;
+    scrollToBottom();
   }
 }
 
@@ -158,10 +177,11 @@ function formatRp(n) {
   if (n == null || n === '') return '—';
   return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n);
 }
+
 function formatDate(iso) {
   if (!iso) return '—';
   try {
-    return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
   } catch {
     return iso;
   }
@@ -171,6 +191,7 @@ async function loadData() {
   try {
     const data = await pendaftaranApi.getStatus();
     payment.value = data.payment ?? null;
+    scrollToBottom();
   } catch (e) {
     loadError.value = e.message || 'Gagal memuat status';
   }
@@ -194,10 +215,6 @@ async function handleUpload() {
   }
 }
 
-function openChatbotVerification() {
-  window.dispatchEvent(new CustomEvent('open-chat', { detail: 'saya mau bayar' }));
-}
-
 onMounted(() => {
   loadData();
 });
@@ -205,124 +222,224 @@ onMounted(() => {
 
 <style scoped>
 .clearance-pembayaran-page {
-  padding-bottom: 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 1rem 0 3rem 0;
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
 }
 
-.page-heading {
-  font-size: 1.25rem;
+.custom-chat-payment {
+  width: 100%;
+  max-width: 600px;
+  height: min(85vh, 750px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Chat Header */
+.chat-header {
+  background: linear-gradient(135deg, #0d6e59, #115e59);
+  color: #ffffff;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.theme-perempuan .chat-header {
+  background: linear-gradient(135deg, #5b21b6, #4c1d95);
+}
+
+.bot-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bot-avatar {
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.bot-info h3 {
+  font-size: 1rem;
   font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.25rem 0;
+  margin: 0;
+  color: #ffffff;
 }
 
-.page-subtitle {
-  font-size: 0.95rem;
-  color: #64748b;
-  margin: 0 0 1.5rem 0;
+.online-status {
+  font-size: 0.75rem;
+  color: #5eead4;
 }
 
-.content-layout {
-  display: grid;
-  grid-template-columns: 1fr 300px;
-  gap: 1.5rem;
-  align-items: start;
+.theme-perempuan .online-status {
+  color: #d8b4fe;
 }
 
-@media (max-width: 900px) {
-  .content-layout {
-    grid-template-columns: 1fr;
-  }
+.header-actions {
+  display: flex;
+  align-items: center;
 }
 
-.content-main {
+.action-header-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #ffffff;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.action-header-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+/* Messages Area */
+.chat-messages-area {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: #f8fafc;
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.card-status :deep(.page-card-body),
-.card-detail :deep(.page-card-body) {
-  padding: 1.5rem;
-}
-
-.status-body {
+.chat-message {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 1rem;
+  gap: 0.75rem;
+  max-width: 90%;
 }
 
-.status-badge {
-  padding: 0.6rem 1.25rem;
-  border-radius: 12px;
+.chat-message.bot {
+  align-self: flex-start;
+}
+
+.chat-message.user {
+  align-self: flex-end;
+  flex-direction: row-reverse;
+}
+
+.msg-avatar {
+  width: 32px;
+  height: 32px;
+  background: #e2e8f0;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   font-size: 1rem;
-  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.status-badge.status-pending {
-  background: #fef3c7;
-  color: #92400e;
+.msg-bubble {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  padding: 0.85rem 1rem;
+  border-radius: 0 16px 16px 16px;
+  font-size: 0.95rem;
+  color: #334155;
+  line-height: 1.5;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.02);
 }
 
-.status-badge.status-ok {
-  background: #d1fae5;
+.chat-message.user .user-bubble {
+  background: #0d6e59;
+  color: #ffffff;
+  border-radius: 16px 0 16px 16px;
+  border: none;
+}
+
+.theme-perempuan .chat-message.user .user-bubble {
+  background: #6d28d9;
+}
+
+.detail-bubble {
+  padding: 1rem;
+  width: 100%;
+}
+
+.success-bubble {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
   color: #065f46;
 }
 
-.status-badge.status-no {
-  background: #fee2e2;
-  color: #991b1b;
-}
-
-.status-badge.theme-laki-laki:not([class*="status-"]) {
-  background: #ccfbf1;
-  color: #0f766e;
-}
-
-.status-badge.theme-perempuan:not([class*="status-"]) {
-  background: #ede9fe;
-  color: #5b21b6;
-}
-
-.status-desc {
+/* Detail Table */
+.detail-title {
+  font-weight: 700;
+  color: #1e293b;
+  margin-bottom: 0.75rem;
   font-size: 0.95rem;
-  color: #475569;
-  line-height: 1.4;
-  margin: 0;
+  border-bottom: 1px dashed #cbd5e1;
+  padding-bottom: 0.5rem;
 }
 
-/* Rekening Section */
-.card-rekening :deep(.page-card-body) {
-  padding: 1.5rem;
+.detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
 }
 
-.rekening-body {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
+.detail-table td {
+  padding: 0.4rem 0;
+  vertical-align: top;
 }
 
-.rekening-desc {
-  font-size: 0.95rem;
-  color: #334155;
-  margin: 0;
-  font-weight: 500;
+.detail-table td:first-child {
+  color: #64748b;
+  width: 45%;
 }
 
+.detail-table td:last-child {
+  color: #0f1e3c;
+  text-align: right;
+}
+
+/* Status Badges */
+.status-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+.status-badge.status-pending { background: #fef3c7; color: #92400e; }
+.status-badge.status-ok { background: #d1fae5; color: #065f46; }
+.status-badge.status-no { background: #fee2e2; color: #991b1b; }
+
+/* Bank Info */
 .bank-list {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
 .bank-item {
   display: flex;
   align-items: center;
-  gap: 1.25rem;
-  background: #f8fafc;
-  padding: 1rem 1.25rem;
+  gap: 1rem;
+  background: #f1f5f9;
+  padding: 0.75rem;
+  border-radius: 10px;
   border: 1px solid #e2e8f0;
-  border-radius: 12px;
 }
 
 .bank-logo {
@@ -330,9 +447,9 @@ onMounted(() => {
   border: 1px solid #cbd5e1;
   color: #0f1e3c;
   font-weight: 800;
-  font-size: 1.1rem;
-  width: 60px;
-  height: 40px;
+  font-size: 0.9rem;
+  width: 50px;
+  height: 35px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -343,202 +460,78 @@ onMounted(() => {
 .bank-details {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.15rem;
 }
 
-.bank-name {
-  font-weight: 700;
-  color: #1e293b;
-  font-size: 0.95rem;
-}
-
+.bank-name { font-weight: 700; color: #1e293b; font-size: 0.85rem; }
 .rek-number {
-  font-family: monospace;
-  font-size: 1.15rem;
-  font-weight: 700;
-  color: #0f766e;
-  letter-spacing: 1.5px;
+  font-family: monospace; font-size: 1.05rem; font-weight: 700; color: #0f766e;
+}
+.theme-perempuan .rek-number { color: #6d28d9; }
+.rek-name { font-size: 0.75rem; color: #64748b; }
+
+/* Input Area */
+.chat-input-area {
+  padding: 1rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
 }
 
-.theme-perempuan .rek-number {
-  color: #6d28d9;
-}
-
-.rek-name {
-  font-size: 0.85rem;
-  color: #64748b;
-  font-weight: 500;
-}
-
-.rekening-note {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  margin-top: 0.5rem;
-}
-
-.payment-upload {
+.upload-controls {
   display: flex;
-  flex-direction: column;
   gap: 0.75rem;
-  width: 100%;
-  max-width: 400px;
 }
 
-.upload-label {
+.hidden-input {
+  display: none;
+}
+
+.opt-btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
   font-size: 0.9rem;
   font-weight: 600;
-  color: #374151;
-}
-
-.file-input {
-  padding: 0.5rem;
-  border: 1px dashed #cbd5e1;
-  border-radius: 8px;
-  background: #f8fafc;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+  border: none;
 }
 
-.payment-waiting {
-  background: #fef3c7;
-  padding: 1rem;
-  border-radius: 12px;
-  border: 1px solid #fde68a;
-  color: #92400e;
-  font-size: 0.95rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+.btn-pilih {
+  background: #f1f5f9;
+  color: #475569;
+}
+.btn-pilih:hover { background: #e2e8f0; }
+
+.btn-kirim {
+  background: #0d6e59;
+  color: #ffffff;
+}
+.btn-kirim:hover:not(:disabled) { background: #0f766e; }
+.theme-perempuan .btn-kirim { background: #6d28d9; }
+.theme-perempuan .btn-kirim:hover:not(:disabled) { background: #5b21b6; }
+
+.opt-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .btn-secondary {
   display: inline-block;
-  text-align: center;
+  padding: 0.4rem 0.8rem;
   background: #fff;
-  border: 1px solid #d1d5db;
-  padding: 0.5rem 1rem;
-  border-radius: 8px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #374151;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: #334155;
   text-decoration: none;
-  cursor: pointer;
-}
-.btn-secondary:hover {
-  background: #f9fafb;
-}
-
-.detail-table-wrap {
-  overflow-x: auto;
-}
-
-.detail-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.95rem;
-}
-
-.detail-table td {
-  padding: 0.75rem 0.5rem 0.75rem 0;
-  border-bottom: 1px solid #f1f5f9;
-  vertical-align: top;
-}
-
-.detail-table tr:last-child td {
-  border-bottom: none;
-}
-
-.detail-table .label {
-  color: #64748b;
-  font-weight: 500;
-  width: 40%;
-}
-
-.detail-table .value {
-  color: #1e293b;
   font-weight: 600;
 }
-
-.content-sidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.card-info :deep(.page-card-body),
-.card-tahun :deep(.page-card-body) {
-  padding: 1.25rem;
-}
-
-.info-list {
-  margin: 0;
-  padding-left: 1.2rem;
-  color: #475569;
-  font-size: 0.9rem;
-  line-height: 1.7;
-}
-
-.info-list li {
-  margin-bottom: 0.5rem;
-}
-
-.select-tahun {
-  width: 100%;
-  padding: 0.65rem 0.85rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  color: #1e293b;
-  background: #fff;
-  cursor: pointer;
-}
-
-.select-tahun:focus {
-  outline: none;
-  border-color: #0f766e;
-}
-
-.theme-perempuan .select-tahun:focus {
-  border-color: #7c3aed;
-}
-
-.payment-actions {
-  margin-top: 1rem;
-}
-
-.btn-pay {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: var(--primary);
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.btn-pay:hover:not(:disabled) {
-  opacity: 0.9;
-  transform: translateY(-1px);
-}
-
-.btn-pay:disabled {
-  opacity: 0.7;
-  cursor: not-allowed;
-  transform: none;
-}
-
-.theme-laki-laki .btn-pay {
-  background: #0f766e;
-}
-
-.theme-perempuan .btn-pay {
-  background: #7c3aed;
-}
+.btn-secondary:hover { background: #f8fafc; }
 
 .spinner {
   width: 16px;
@@ -552,25 +545,8 @@ onMounted(() => {
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
-.btn-chat-verify {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: #3b82f6;
-  color: #fff;
-  border: none;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  box-shadow: 0 4px 6px -1px rgba(59, 130, 246, 0.3);
-}
 
-.btn-chat-verify:hover {
-  background: #2563eb;
-  transform: translateY(-1px);
-}
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
 </style>
+

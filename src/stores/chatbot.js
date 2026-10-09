@@ -19,7 +19,8 @@ export const useChatbotStore = defineStore('chatbot', {
       switch (role) {
         case 'murid':
         case 'student':
-          return ['Tagihan Saya', 'Jadwal Pelajaran', 'Lihat Nilai', 'Info Asrama'];
+        case 'siswa':
+          return ['Cara Gunakan Website', 'Panduan Pendaftaran', 'Tagihan Saya', 'Jadwal Pelajaran', 'Bantuan Staf'];
         case 'guru':
         case 'teacher':
           return ['Jadwal Mengajar', 'Panduan Input Absensi', 'Panduan Input Nilai', 'Daftar Kelas'];
@@ -30,7 +31,7 @@ export const useChatbotStore = defineStore('chatbot', {
           return ['Panduan Kelola Role', 'Ringkasan Monitoring', 'FAQ Sekolah'];
         case 'umum':
         default:
-          return ['Info Pendaftaran', 'Biaya & SPP', 'Aturan Asrama', 'Bicara dg Staf'];
+          return ['Cara Gunakan Website', 'Info Pendaftaran', 'Biaya & SPP', 'Aturan Asrama', 'Bicara dg Staf'];
       }
     },
   },
@@ -55,7 +56,7 @@ export const useChatbotStore = defineStore('chatbot', {
         this.messages = [
           {
             role: 'assistant',
-            message: 'Halo! 👋 Saya Asisten Virtual SLAPUR. Ada yang bisa saya bantu terkait pendaftaran, biaya, jadwal, atau informasi sekolah?',
+            message: 'Halo! 👋 Saya Asisten SLAPUR. Saya siap membantu kamu memahami cara menggunakan website SLAPUR, navigasi menu, info pendaftaran, jadwal, hingga pembayaran SPP. Ada yang ingin kamu tanyakan?',
           },
         ];
         return;
@@ -75,7 +76,7 @@ export const useChatbotStore = defineStore('chatbot', {
           this.messages = [
             {
               role: 'assistant',
-              message: 'Halo! 👋 Saya Asisten Virtual SLAPUR. Ada yang bisa saya bantu terkait pendaftaran, biaya, jadwal, atau informasi sekolah?',
+              message: 'Halo! 👋 Saya Asisten SLAPUR. Saya siap membantu kamu memahami cara menggunakan website SLAPUR, navigasi menu, info pendaftaran, jadwal, hingga pembayaran SPP. Ada yang ingin kamu tanyakan?',
             },
           ];
         }
@@ -84,7 +85,7 @@ export const useChatbotStore = defineStore('chatbot', {
         this.messages = [
           {
             role: 'assistant',
-            message: 'Halo! 👋 Saya Asisten Virtual SLAPUR. Ada yang bisa saya bantu?',
+            message: 'Halo! 👋 Saya Asisten SLAPUR. Ada yang bisa saya bantu terkait penggunaan website SLAPUR?',
           },
         ];
       } finally {

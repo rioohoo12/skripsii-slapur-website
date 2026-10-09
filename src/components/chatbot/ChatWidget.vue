@@ -1,77 +1,57 @@
 <template>
-  <div class="fixed bottom-4 right-4 z-50 font-sans">
-    <!-- Floating Toggle Button -->
+  <div 
+    class="slapur-widget-container" 
+    style="position: fixed; bottom: 6rem; right: 1.25rem; z-index: 9999;"
+  >
+    <!-- Floating Trigger Button (Bottom-Right Footer Corner) -->
     <button 
       v-if="!store.isOpen" 
       @click="store.toggleChat()"
-      class="bg-gradient-to-r from-teal-700 to-teal-800 text-white rounded-full p-4 shadow-xl hover:shadow-teal-900/30 hover:scale-105 active:scale-95 transition-all duration-200 flex items-center gap-2 group border border-teal-500/30"
-      aria-label="Buka Chatbot"
+      class="trigger-floating-btn"
+      aria-label="Buka Asisten SLAPUR"
     >
-      <div class="relative">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-        </svg>
-        <span class="absolute -top-1 -right-1 w-3 h-3 bg-emerald-400 border-2 border-teal-800 rounded-full"></span>
+      <div class="trigger-avatar">🤖</div>
+      <div class="trigger-info">
+        <span class="trigger-title">Asisten SLAPUR</span>
+        <span class="trigger-sub">● Berinteraksi Langsung</span>
       </div>
-      <span class="hidden sm:inline text-xs font-bold tracking-wide pr-1">Asisten SLAPUR</span>
     </button>
 
-    <!-- Chat Modal Window -->
+    <!-- Chat Window Modal Window -->
     <div 
       v-else 
-      class="bg-slate-50 rounded-2xl shadow-2xl w-[92vw] sm:w-[400px] flex flex-col overflow-hidden border border-slate-200/80 transition-all duration-300"
-      style="height: min(82vh, 580px);"
+      class="chat-modal-window"
     >
-      <!-- Header Bar -->
-      <div class="bg-gradient-to-r from-teal-800 via-teal-700 to-emerald-800 text-white p-3.5 flex justify-between items-center shadow-sm">
-        <div class="flex items-center gap-2.5">
-          <div class="w-8 h-8 rounded-full bg-white/20 border border-white/30 flex items-center justify-center font-bold text-sm text-emerald-200">
-            🤖
-          </div>
+      <!-- Chat Header -->
+      <div class="chat-header">
+        <div class="bot-info">
+          <div class="bot-avatar">🤖</div>
           <div>
-            <h3 class="font-bold text-xs sm:text-sm tracking-wide leading-tight">Asisten Virtual SLAPUR</h3>
-            <div class="flex items-center gap-1.5 text-[10px] text-teal-100">
-              <span class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></span>
-              <span class="capitalize font-medium">Role: {{ store.userRole }}</span>
-            </div>
+            <h3>Asisten SLAPUR</h3>
+            <span class="online-status">● Berinteraksi Langsung</span>
           </div>
         </div>
 
-        <div class="flex items-center gap-1">
-          <!-- Clear Chat History -->
-          <button 
-            @click="store.clearHistory()" 
-            class="p-1.5 hover:bg-white/10 rounded-lg text-teal-100 hover:text-white transition-colors"
-            title="Bersihkan Percakapan"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-            </svg>
+        <div class="header-actions">
+          <button @click="store.clearHistory()" class="action-header-btn reset-btn" title="Mulai Ulang Chat">
+            🔄 Mulai Ulang
           </button>
-
-          <!-- Close Modal -->
-          <button 
-            @click="store.toggleChat()" 
-            class="p-1.5 hover:bg-white/10 rounded-lg text-teal-100 hover:text-white transition-colors"
-            title="Tutup Chat"
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
+          <button @click="store.toggleChat()" class="action-header-btn exit-btn" title="Keluar Chat">
+            ✕ Keluar
           </button>
         </div>
       </div>
 
       <!-- Error Alert Banner -->
-      <div v-if="store.errorMsg" class="bg-rose-100 border-b border-rose-200 text-rose-800 px-3 py-2 text-xs flex items-center justify-between">
-        <span class="truncate">{{ store.errorMsg }}</span>
-        <button @click="store.errorMsg = ''" class="font-bold ml-2 hover:text-rose-900">&times;</button>
+      <div v-if="store.errorMsg" class="error-banner">
+        <span>{{ store.errorMsg }}</span>
+        <button @click="store.errorMsg = ''" class="close-error">&times;</button>
       </div>
 
-      <!-- Messages Body Scroll Container -->
+      <!-- Messages Scroll Area -->
       <div 
         ref="messagesContainer"
-        class="flex-1 p-3.5 overflow-y-auto flex flex-col gap-3 scroll-smooth"
+        class="chat-messages-area"
       >
         <ChatMessage 
           v-for="(msg, index) in store.messages" 
@@ -94,19 +74,19 @@
       <!-- Quick Reply Pill Buttons per Role -->
       <div 
         v-if="!store.isLoading && store.quickReplies.length > 0" 
-        class="px-3 py-2 bg-white border-t border-slate-100 flex gap-1.5 overflow-x-auto no-scrollbar"
+        class="quick-reply-bar"
       >
         <button 
           v-for="(reply, idx) in store.quickReplies" 
           :key="idx"
           @click="sendQuickReply(reply)"
-          class="text-[11px] font-semibold bg-teal-50 text-teal-800 hover:bg-teal-100 border border-teal-200/70 rounded-full px-3 py-1 shrink-0 transition-colors shadow-xs"
+          class="opt-btn"
         >
-          {{ reply }}
+          💡 {{ reply }}
         </button>
       </div>
 
-      <!-- Chat Input Form Component -->
+      <!-- Chat Input Component -->
       <ChatInput 
         :is-loading="store.isLoading" 
         @send="handleSend"
@@ -191,11 +171,214 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.no-scrollbar::-webkit-scrollbar {
+.slapur-widget-container {
+  font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
+  user-select: none;
+}
+
+/* Floating Trigger Button */
+.trigger-floating-btn {
+  background: #0d6e59;
+  color: #ffffff;
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: 0 10px 25px rgba(13, 110, 89, 0.35);
+  cursor: pointer;
+  transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.trigger-floating-btn:hover {
+  background: #0f766e;
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(13, 110, 89, 0.45);
+}
+
+.trigger-avatar {
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.trigger-info {
+  display: flex;
+  flex-direction: column;
+  text-align: left;
+}
+
+.trigger-title {
+  font-size: 0.85rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.trigger-sub {
+  font-size: 0.7rem;
+  color: #5eead4;
+}
+
+/* Chat Modal Window */
+.chat-modal-window {
+  width: 420px;
+  max-width: 92vw;
+  height: min(82vh, 600px);
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Chat Header */
+.chat-header {
+  background: linear-gradient(135deg, #0d6e59, #115e59);
+  color: #ffffff;
+  padding: 1rem 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bot-info {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.bot-avatar {
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+}
+
+.bot-info h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+  color: #ffffff;
+}
+
+.online-status {
+  font-size: 0.75rem;
+  color: #5eead4;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.action-header-btn {
+  background: rgba(255, 255, 255, 0.18);
+  border: none;
+  color: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s;
+  white-space: nowrap;
+}
+
+.action-header-btn:hover {
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.exit-btn {
+  background: rgba(239, 68, 68, 0.4);
+}
+
+.exit-btn:hover {
+  background: rgba(239, 68, 68, 0.7);
+}
+
+/* Error Banner */
+.error-banner {
+  background: #fef2f2;
+  border-bottom: 1px solid #fecaca;
+  color: #991b1b;
+  padding: 0.5rem 1.25rem;
+  font-size: 0.8rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.close-error {
+  background: none;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+  color: #991b1b;
+}
+
+/* Messages Scroll Area */
+.chat-messages-area {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.chat-messages-area::-webkit-scrollbar {
+  width: 5px;
+}
+
+.chat-messages-area::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 999px;
+}
+
+/* Quick Reply Bar */
+.quick-reply-bar {
+  padding: 0.65rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.quick-reply-bar::-webkit-scrollbar {
   display: none;
 }
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+
+.opt-btn {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+  shrink: 0;
+}
+
+.opt-btn:hover {
+  background: #dcfce7;
 }
 </style>

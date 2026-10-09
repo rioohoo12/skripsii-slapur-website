@@ -1,0 +1,1 @@
+import{_ as n,c as t,a,l as o}from"./index-CBTXgEKK.js";const s={},l={class:"p-6"};function c(r,e){return o(),t("div",l,[...e[0]||(e[0]=[a("h2",{class:"text-2xl font-bold"},"Halaman DokumenDetail.vue",-1),a("p",null,"Sedang dalam pengembangan.",-1)])])}const m=n(s,[["render",c]]);export{m as default};

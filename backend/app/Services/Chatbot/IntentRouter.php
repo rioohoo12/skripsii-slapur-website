@@ -28,16 +28,14 @@ class IntentRouter
             ];
         }
 
-        // 2. Intent Data Lokal (Nilai, Absensi, Tagihan, Jadwal, Kamar)
-        if (in_array($intent, ['nilai', 'absensi', 'tagihan_dan_bayar', 'status_pembayaran', 'pilih_kamar', 'jadwal', 'materi', 'ringkasan_data_siswa'])) {
-            $resolvedData = $this->localDataResolver->resolve($intent, $user, $slots);
-            if ($resolvedData['has_data']) {
-                return [
-                    'type' => 'local_data',
-                    'intent' => $intent,
-                    'resolved_data' => $resolvedData,
-                ];
-            }
+        // 2. Intent Data Lokal & Presets (Nilai, Absensi, Tagihan, Jadwal, Kamar, Guides, Website)
+        $resolvedData = $this->localDataResolver->resolve($intent, $user, $slots);
+        if ($resolvedData['has_data']) {
+            return [
+                'type' => 'local_data',
+                'intent' => $intent,
+                'resolved_data' => $resolvedData,
+            ];
         }
 
         // 3. Intent FAQ / Knowledge Base Match

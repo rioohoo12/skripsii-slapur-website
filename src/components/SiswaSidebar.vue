@@ -1,42 +1,60 @@
 <template>
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-wrap">
-        <img src="/slapur-logo.png" alt="Slapur Academic" class="brand-logo" />
-        <div class="brand-text">
-          <span class="brand-name">Slapur</span>
-          <span class="brand-sub">Academic</span>
+  <div>
+    <!-- Mobile Drawer Overlay / Backdrop -->
+    <div 
+      v-if="mobileOpen" 
+      class="mobile-backdrop"
+      @click="closeMobile"
+    ></div>
+
+    <!-- Sidebar Container -->
+    <aside 
+      class="sidebar"
+      :class="{ 'mobile-open': mobileOpen }"
+    >
+      <div class="sidebar-header">
+        <div class="logo-wrap">
+          <img src="/slapur-logo.png" alt="Slapur Academic" class="brand-logo" />
+          <div class="brand-text">
+            <span class="brand-name">Slapur</span>
+            <span class="brand-sub">Academic</span>
+          </div>
         </div>
+        <!-- Close button on mobile -->
+        <button class="mobile-close-btn" @click="closeMobile">
+          &times;
+        </button>
       </div>
-    </div>
-    
-    <nav class="sidebar-nav">
-      <template v-for="item in menuItems" :key="item.path">
-        <router-link
-          v-if="!item.locked"
-          :to="item.path"
-          class="nav-item"
-          active-class="active"
-          :exact-active-class="item.exact ? 'active' : ''"
-        >
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span class="nav-label">{{ item.label }}</span>
-        </router-link>
-        
-        <div v-else class="nav-item locked" @click="showLockedAlert">
-          <span class="nav-icon">{{ item.icon }}</span>
-          <span class="nav-label">{{ item.label }} <span class="lock-icon">🔒</span></span>
-        </div>
-      </template>
-    </nav>
-    
-    <div class="sidebar-footer">
-      <button class="logout-btn" @click="handleLogout">
-        <span class="nav-icon">🚪</span>
-        <span class="nav-label">Keluar</span>
-      </button>
-    </div>
-  </aside>
+      
+      <nav class="sidebar-nav">
+        <template v-for="item in menuItems" :key="item.path">
+          <router-link
+            v-if="!item.locked"
+            :to="item.path"
+            class="nav-item"
+            active-class="active"
+            :exact-active-class="item.exact ? 'active' : ''"
+            @click="closeMobile"
+          >
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.label }}</span>
+          </router-link>
+          
+          <div v-else class="nav-item locked" @click="showLockedAlert">
+            <span class="nav-icon">{{ item.icon }}</span>
+            <span class="nav-label">{{ item.label }} <span class="lock-icon">🔒</span></span>
+          </div>
+        </template>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button class="logout-btn" @click="handleLogout">
+          <span class="nav-icon">🚪</span>
+          <span class="nav-label">Keluar</span>
+        </button>
+      </div>
+    </aside>
+  </div>
 </template>
 
 <script setup>
@@ -44,6 +62,12 @@ import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePendaftaranStore } from '@/stores/pendaftaran';
+
+const props = defineProps({
+  mobileOpen: { type: Boolean, default: false }
+});
+
+const emit = defineEmits(['update:mobileOpen', 'close']);
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -70,11 +94,17 @@ const menuItems = computed(() => {
   ];
 });
 
+function closeMobile() {
+  emit('update:mobileOpen', false);
+  emit('close');
+}
+
 function showLockedAlert() {
   alert('Silakan selesaikan proses pendaftaran Anda terlebih dahulu untuk membuka menu ini.');
 }
 
 async function handleLogout() {
+  closeMobile();
   await authStore.logout();
   router.push('/siswa');
 }
@@ -83,30 +113,35 @@ async function handleLogout() {
 <style scoped>
 .sidebar {
   width: 260px;
-  min-height: 100vh;
+  height: 100vh;
   background-color: #0f1e3c;
   color: #ffffff;
   display: flex;
   flex-direction: column;
   box-shadow: 4px 0 24px rgba(0, 0, 0, 0.05);
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 20;
+  left: 0;
+  z-index: 40;
+  transition: transform 0.3s ease;
 }
 
 .sidebar-header {
-  padding: 2rem 1.5rem;
+  padding: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .logo-wrap {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
 }
 
 .brand-logo {
-  width: 48px;
-  height: 48px;
+  width: 42px;
+  height: 42px;
   border-radius: 50%;
   object-fit: cover;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
@@ -124,14 +159,30 @@ async function handleLogout() {
 }
 
 .brand-sub {
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 400;
   color: #94a3b8;
 }
 
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: #94a3b8;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+}
+
+.mobile-close-btn:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1);
+}
+
 .sidebar-nav {
   flex: 1;
-  padding: 0 1rem;
+  padding: 0 0.85rem;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -141,12 +192,12 @@ async function handleLogout() {
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0.85rem 1rem;
+  gap: 0.85rem;
+  padding: 0.75rem 1rem;
   border-radius: 12px;
   color: #cbd5e1;
   text-decoration: none;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   transition: all 0.2s ease;
   cursor: pointer;
@@ -175,27 +226,27 @@ async function handleLogout() {
 }
 
 .nav-icon {
-  font-size: 1.25rem;
-  width: 1.5rem;
+  font-size: 1.15rem;
+  width: 1.25rem;
   text-align: center;
 }
 
 .sidebar-footer {
-  padding: 1.5rem;
+  padding: 1.25rem;
   margin-top: auto;
 }
 
 .logout-btn {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0.85rem;
   width: 100%;
-  padding: 0.85rem 1rem;
+  padding: 0.75rem 1rem;
   background: transparent;
   border: none;
   border-radius: 12px;
   color: #94a3b8;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
@@ -208,11 +259,25 @@ async function handleLogout() {
   color: #ef4444;
 }
 
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 35;
+}
+
+/* Mobile & Tablet Styles (< 1024px) */
 @media (max-width: 1024px) {
   .sidebar {
-    width: 100%;
-    min-height: auto;
-    position: static;
+    transform: translateX(-100%);
+    box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
+  }
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .mobile-close-btn {
+    display: block;
   }
 }
 </style>

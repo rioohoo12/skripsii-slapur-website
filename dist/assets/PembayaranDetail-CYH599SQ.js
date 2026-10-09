@@ -1,1 +1,0 @@
-import{_ as n,c as t,a as e,l as s}from"./index-B0IA_mkk.js";const l={},o={class:"p-6"};function r(c,a){return s(),t("div",o,[...a[0]||(a[0]=[e("h2",{class:"text-2xl font-bold"},"Halaman PembayaranDetail.vue",-1),e("p",null,"Sedang dalam pengembangan.",-1)])])}const m=n(l,[["render",r]]);export{m as default};

@@ -1,20 +1,26 @@
 <template>
-  <div class="pendaftaran-form-page" :class="themeClass">
+  <div class="pendaftaran-chatbot-page" :class="themeClass">
+    <!-- Header Section -->
     <div class="header-section">
-      <h2 class="page-title">Formulir Pendaftaran</h2>
-      <p class="page-subtitle">Silakan lengkapi biodata, data pendidikan, dan data orang tua/wali Anda.</p>
+      <div class="title-badge">
+        <span class="icon font-bold">🤖</span>
+        <span>Pendaftaran Otomatis via Custom Chatbot</span>
+      </div>
+      <h2 class="page-title">Asisten Pendaftaran Siswa Baru</h2>
+      <p class="page-subtitle">
+        Proses pendaftaran dilakukan sepenuhnya melalui percakapan dengan Custom Chatbot di bawah ini. Anda tidak perlu menginput formulir secara manual.
+      </p>
     </div>
 
-    <!-- Notifikasi Sukses -->
+    <!-- Alert Notifications -->
     <div v-if="successMsg" class="alert success-alert">
       <span class="icon">✅</span>
       <div class="content">
-        <h4>Berhasil</h4>
+        <h4>Pendaftaran Berhasil!</h4>
         <p>{{ successMsg }}</p>
       </div>
     </div>
 
-    <!-- Notifikasi Error (Global) -->
     <div v-if="errorMsg" class="alert error-alert">
       <span class="icon">⚠️</span>
       <div class="content">
@@ -23,171 +29,180 @@
       </div>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="form-container">
-      
-      <!-- DATA PRIBADI -->
-      <PageCard :jenis-kelamin="jenisKelamin" class="form-card">
-        <template #header>Data Pribadi</template>
-        <div class="grid-form">
-          <div class="form-group full-width">
-            <label for="full_name">Nama Lengkap *</label>
-            <input id="full_name" v-model="form.full_name" type="text" placeholder="Sesuai Akte Kelahiran" required />
+    <!-- Main Grid: Chatbot Window + Live Data Preview Card -->
+    <div class="chatbot-grid">
+      <!-- Chatbot Interactive Container -->
+      <div class="chat-container-card">
+        <!-- Chat Header -->
+        <div class="chat-header">
+          <div class="bot-info">
+            <div class="bot-avatar">🤖</div>
+            <div>
+              <h3>Otak VA Pendaftaran SLAPUR</h3>
+              <span class="online-status">● Berinteraksi Langsung</span>
+            </div>
           </div>
-          <div class="form-group">
-            <label for="gender">Jenis Kelamin *</label>
-            <select id="gender" v-model="form.gender" required>
-              <option value="laki-laki">Laki-laki</option>
-              <option value="perempuan">Perempuan</option>
-            </select>
+          <button @click="resetConversation" class="reset-btn" title="Reset Percakapan">
+            🔄 Mulai Ulang
+          </button>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages" ref="messagesContainer">
+          <div 
+            v-for="(msg, idx) in messages" 
+            :key="idx"
+            :class="['message-bubble', msg.role === 'user' ? 'user-msg' : 'bot-msg']"
+          >
+            <div class="msg-content whitespace-pre-line">
+              {{ msg.text }}
+            </div>
           </div>
-          <div class="form-group">
-            <label for="tempat_lahir">Tempat Lahir *</label>
-            <input id="tempat_lahir" v-model="form.tempat_lahir" type="text" placeholder="Kota Kelahiran" required />
-          </div>
-          <div class="form-group">
-            <label for="tanggal_lahir">Tanggal Lahir *</label>
-            <input id="tanggal_lahir" v-model="form.tanggal_lahir" type="date" required />
-          </div>
-          <div class="form-group">
-            <label for="agama">Agama *</label>
-            <input id="agama" v-model="form.agama" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="golongan_darah">Golongan Darah</label>
-            <select id="golongan_darah" v-model="form.golongan_darah">
-              <option value="">Pilih</option>
-              <option value="A">A</option>
-              <option value="B">B</option>
-              <option value="AB">AB</option>
-              <option value="O">O</option>
-              <option value="Tidak Tahu">Tidak Tahu</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="kewarganegaraan">Kewarganegaraan *</label>
-            <input id="kewarganegaraan" v-model="form.kewarganegaraan" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="no_telp">Nomor Telepon Pribadi</label>
-            <input id="no_telp" v-model="form.no_telp" type="tel" placeholder="08xxxxxxxxxx" />
-          </div>
-          <div class="form-group full-width">
-            <label for="alamat">Alamat Lengkap *</label>
-            <textarea id="alamat" v-model="form.alamat" rows="3" placeholder="Jalan, RT/RW, Desa/Kelurahan" required></textarea>
+
+          <div v-if="loadingBot" class="typing-indicator">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="text">Bot sedang menyusun pertanyaan...</span>
           </div>
         </div>
-      </PageCard>
 
-      <!-- DATA PENDIDIKAN -->
-      <PageCard :jenis-kelamin="jenisKelamin" class="form-card">
-        <template #header>Data Pendidikan</template>
-        <div class="grid-form">
-          <div class="form-group">
-            <label for="kelas_yang_didaftar">Kelas Pendaftaran *</label>
-            <select id="kelas_yang_didaftar" v-model="form.kelas_yang_didaftar" required>
-              <option value="" disabled>Pilih Kelas</option>
-              <option value="7">Kelas 7 (SMP)</option>
-              <option value="8">Kelas 8 (SMP)</option>
-              <option value="9">Kelas 9 (SMP)</option>
-              <option value="10">Kelas 10 (SMA)</option>
-              <option value="11">Kelas 11 (SMA)</option>
-              <option value="12">Kelas 12 (SMA)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label class="checkbox-label">
-              <input type="checkbox" v-model="form.is_transfer_student" />
-              <span>Siswa Pindahan</span>
-            </label>
-          </div>
-          <div class="form-group full-width">
-            <label for="previous_school_name">Asal Sekolah</label>
-            <input id="previous_school_name" v-model="form.previous_school_name" type="text" placeholder="Nama SD/SMP asal" />
-          </div>
+        <!-- Quick Answer Options (If Awaiting Specific Selection) -->
+        <div v-if="currentOptions.length > 0 && !loadingBot" class="quick-options">
+          <button 
+            v-for="(opt, oIdx) in currentOptions" 
+            :key="oIdx"
+            @click="selectOption(opt)"
+            class="opt-btn"
+          >
+            {{ opt.label || opt }}
+          </button>
         </div>
-      </PageCard>
 
-      <!-- DATA ORANG TUA/WALI -->
-      <PageCard :jenis-kelamin="jenisKelamin" class="form-card">
-        <template #header>Data Orang Tua / Wali</template>
-        <div class="grid-form">
-          <div class="form-group full-width">
-            <label for="no_telp_ortu">Nomor Telepon Utama Orang Tua / Wali * (Gunakan awalan 08 atau 62)</label>
-            <input id="no_telp_ortu" v-model="form.no_telp_ortu" type="tel" pattern="^(08|62)[0-9]{8,13}$" placeholder="Contoh: 08123456789 atau 628123456789" required />
-            <small style="color: #64748b; font-size: 0.8rem; margin-top: 4px; display: block;">Pastikan nomor aktif dan dapat dihubungi, diawali dengan 08 atau 62.</small>
-          </div>
-
-          <h4 class="section-title full-width" style="margin-top: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; color: #1e293b;">Data Ayah</h4>
-          <div class="form-group">
-            <label for="nama_ayah">Nama Ayah *</label>
-            <input id="nama_ayah" v-model="form.nama_ayah" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="pendidikan_ayah">Pendidikan Ayah</label>
-            <input id="pendidikan_ayah" v-model="form.pendidikan_ayah" type="text" />
-          </div>
-          <div class="form-group">
-            <label for="pekerjaan_ayah">Pekerjaan Ayah *</label>
-            <input id="pekerjaan_ayah" v-model="form.pekerjaan_ayah" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="penghasilan_ayah">Penghasilan Ayah</label>
-            <input id="penghasilan_ayah" v-model="form.penghasilan_ayah" type="text" placeholder="Rp." />
-          </div>
-          <div class="form-group">
-            <label for="agama_ayah">Agama Ayah</label>
-            <input id="agama_ayah" v-model="form.agama_ayah" type="text" />
-          </div>
-          <div class="form-group full-width">
-            <label for="kewarganegaraan_ayah">Kewarganegaraan Ayah</label>
-            <input id="kewarganegaraan_ayah" v-model="form.kewarganegaraan_ayah" type="text" />
-          </div>
-
-          <h4 class="section-title full-width" style="margin-top: 1rem; border-bottom: 1px solid #e2e8f0; padding-bottom: 0.5rem; color: #1e293b;">Data Ibu</h4>
-          <div class="form-group">
-            <label for="nama_ibu">Nama Ibu *</label>
-            <input id="nama_ibu" v-model="form.nama_ibu" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="pendidikan_ibu">Pendidikan Ibu</label>
-            <input id="pendidikan_ibu" v-model="form.pendidikan_ibu" type="text" />
-          </div>
-          <div class="form-group">
-            <label for="pekerjaan_ibu">Pekerjaan Ibu *</label>
-            <input id="pekerjaan_ibu" v-model="form.pekerjaan_ibu" type="text" required />
-          </div>
-          <div class="form-group">
-            <label for="penghasilan_ibu">Penghasilan Ibu</label>
-            <input id="penghasilan_ibu" v-model="form.penghasilan_ibu" type="text" placeholder="Rp." />
-          </div>
-          <div class="form-group">
-            <label for="agama_ibu">Agama Ibu</label>
-            <input id="agama_ibu" v-model="form.agama_ibu" type="text" />
-          </div>
-          <div class="form-group full-width">
-            <label for="kewarganegaraan_ibu">Kewarganegaraan Ibu</label>
-            <input id="kewarganegaraan_ibu" v-model="form.kewarganegaraan_ibu" type="text" />
-          </div>
-        </div>
-      </PageCard>
-
-      <!-- SUBMIT ACTION -->
-      <div class="form-actions">
-        <button type="submit" class="btn-submit" :disabled="loading">
-          <span v-if="loading" class="spinner"></span>
-          {{ loading ? 'Menyimpan Data...' : 'Simpan Pendaftaran' }}
-        </button>
+        <!-- Chat Input Form -->
+        <form @submit.prevent="sendMessage" class="chat-input-bar">
+          <input 
+            v-model="userMsg" 
+            type="text" 
+            placeholder="Jawab pertanyaan bot di sini (misal: Nama Lengkap, Laki-laki, dll)..." 
+            :disabled="loadingBot || isSubmitting"
+            ref="inputRef"
+          />
+          <button type="submit" :disabled="!userMsg.trim() || loadingBot || isSubmitting" class="send-btn">
+            Kirim
+          </button>
+        </form>
       </div>
-    </form>
+
+      <!-- Live Summary Preview Panel -->
+      <div class="preview-panel-card">
+        <div class="preview-header">
+          <h3>Ringkasan Data Terkumpul</h3>
+          <span class="progress-percent">{{ progressPercentage }}% Terisi</span>
+        </div>
+
+        <!-- Progress Bar -->
+        <div class="progress-bar-bg">
+          <div class="progress-bar-fill" :style="{ width: progressPercentage + '%' }"></div>
+        </div>
+
+        <!-- Categorized Data Lists -->
+        <div class="summary-groups">
+          <!-- Data Pribadi -->
+          <div class="group-box">
+            <h4 class="group-title">👤 Data Pribadi</h4>
+            <div class="item-row">
+              <span class="label">Nama Lengkap:</span>
+              <span class="val" :class="{ filled: form.full_name }">{{ form.full_name || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Jenis Kelamin:</span>
+              <span class="val capitalize" :class="{ filled: form.gender }">{{ form.gender || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Tempat Lahir:</span>
+              <span class="val" :class="{ filled: form.tempat_lahir }">{{ form.tempat_lahir || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Tanggal Lahir:</span>
+              <span class="val" :class="{ filled: form.tanggal_lahir }">{{ form.tanggal_lahir || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Agama:</span>
+              <span class="val" :class="{ filled: form.agama }">{{ form.agama || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Alamat:</span>
+              <span class="val" :class="{ filled: form.alamat }">{{ form.alamat || 'Belum diisi' }}</span>
+            </div>
+          </div>
+
+          <!-- Data Pendidikan -->
+          <div class="group-box">
+            <h4 class="group-title">🎓 Data Pendidikan</h4>
+            <div class="item-row">
+              <span class="label">Kelas Pendaftaran:</span>
+              <span class="val" :class="{ filled: form.kelas_yang_didaftar }">
+                {{ form.kelas_yang_didaftar ? `Kelas ${form.kelas_yang_didaftar}` : 'Belum diisi' }}
+              </span>
+            </div>
+            <div class="item-row">
+              <span class="label">Asal Sekolah:</span>
+              <span class="val" :class="{ filled: form.previous_school_name }">{{ form.previous_school_name || 'Belum diisi' }}</span>
+            </div>
+          </div>
+
+          <!-- Data Orang Tua / Wali -->
+          <div class="group-box">
+            <h4 class="group-title">👨‍👩‍👦 Data Orang Tua / Wali</h4>
+            <div class="item-row">
+              <span class="label">Nama Ayah:</span>
+              <span class="val" :class="{ filled: form.nama_ayah }">{{ form.nama_ayah || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Pekerjaan Ayah:</span>
+              <span class="val" :class="{ filled: form.pekerjaan_ayah }">{{ form.pekerjaan_ayah || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Nama Ibu:</span>
+              <span class="val" :class="{ filled: form.nama_ibu }">{{ form.nama_ibu || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">Pekerjaan Ibu:</span>
+              <span class="val" :class="{ filled: form.pekerjaan_ibu }">{{ form.pekerjaan_ibu || 'Belum diisi' }}</span>
+            </div>
+            <div class="item-row">
+              <span class="label">No. HP Ortus/Wali:</span>
+              <span class="val" :class="{ filled: form.no_telp_ortu }">{{ form.no_telp_ortu || 'Belum diisi' }}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="submit-wrap">
+          <button 
+            @click="handleSubmit" 
+            class="submit-btn" 
+            :disabled="isSubmitting || !isFormComplete"
+          >
+            <span v-if="isSubmitting" class="spinner"></span>
+            {{ isSubmitting ? 'Menyimpan Pendaftaran...' : 'Simpan & Kirim Pendaftaran' }}
+          </button>
+          <small v-if="!isFormComplete" class="hint-text">
+            *Lengkapi seluruh data melalui chatbot di samping untuk mengaktifkan tombol simpan.
+          </small>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue';
+import { ref, reactive, computed, onMounted, nextTick } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { pendaftaranApi } from '@/api/pendaftaran';
-import PageCard from '@/components/PageCard.vue';
+import { chatbotApi } from '@/api/chatbot';
 
 const props = defineProps({
   jenisKelamin: { type: String, default: 'laki-laki' },
@@ -197,10 +212,17 @@ const themeClass = computed(() => 'theme-' + props.jenisKelamin);
 const router = useRouter();
 const authStore = useAuthStore();
 
-const loading = ref(false);
+const isSubmitting = ref(false);
+const loadingBot = ref(false);
 const errorMsg = ref('');
 const successMsg = ref('');
+const userMsg = ref('');
+const messagesContainer = ref(null);
 
+const messages = ref([]);
+const currentOptions = ref([]);
+
+// Form State Object
 const form = reactive({
   full_name: '',
   gender: props.jenisKelamin,
@@ -210,62 +232,159 @@ const form = reactive({
   is_transfer_student: false,
   previous_school_name: '',
   kelas_yang_didaftar: '',
-
-  agama: '',
-  golongan_darah: '',
+  agama: 'Islam',
+  golongan_darah: 'O',
   kewarganegaraan: 'WNI',
   no_telp: '',
-
   nama_ayah: '',
-  pendidikan_ayah: '',
+  pendidikan_ayah: 'SMA',
   pekerjaan_ayah: '',
-  penghasilan_ayah: '',
+  penghasilan_ayah: '3.000.000',
   no_telp_ayah: '',
-  agama_ayah: '',
+  agama_ayah: 'Islam',
   kewarganegaraan_ayah: 'WNI',
-
   nama_ibu: '',
-  pendidikan_ibu: '',
+  pendidikan_ibu: 'SMA',
   pekerjaan_ibu: '',
-  penghasilan_ibu: '',
+  penghasilan_ibu: '2.000.000',
   no_telp_ibu: '',
-  agama_ibu: '',
+  agama_ibu: 'Islam',
   kewarganegaraan_ibu: 'WNI',
-  
   no_telp_ortu: '',
 });
 
-onMounted(() => {
-  // Pre-fill from user context if available
-  if (authStore.user) {
-    form.full_name = authStore.user.name || form.full_name;
-    form.gender = authStore.user.jenis_kelamin || form.gender;
+// Calculate completion percentage
+const isFormComplete = computed(() => {
+  return !!(
+    form.full_name &&
+    form.gender &&
+    form.tempat_lahir &&
+    form.tanggal_lahir &&
+    form.agama &&
+    form.alamat &&
+    form.kelas_yang_didaftar &&
+    form.previous_school_name &&
+    form.nama_ayah &&
+    form.pekerjaan_ayah &&
+    form.nama_ibu &&
+    form.pekerjaan_ibu &&
+    form.no_telp_ortu
+  );
+});
+
+const progressPercentage = computed(() => {
+  const fields = [
+    form.full_name,
+    form.gender,
+    form.tempat_lahir,
+    form.tanggal_lahir,
+    form.agama,
+    form.alamat,
+    form.kelas_yang_didaftar,
+    form.previous_school_name,
+    form.nama_ayah,
+    form.pekerjaan_ayah,
+    form.nama_ibu,
+    form.pekerjaan_ibu,
+    form.no_telp_ortu
+  ];
+  const filledCount = fields.filter((val) => typeof val === 'string' && val.trim() !== '').length;
+  return Math.round((filledCount / fields.length) * 100);
+});
+
+async function scrollToBottom() {
+  await nextTick();
+  if (messagesContainer.value) {
+    messagesContainer.value.scrollTop = messagesContainer.value.scrollHeight;
   }
-  
-  // Listen for chatbot slot updates
-  window.addEventListener('chatbot-slots', handleChatbotSlots);
-});
+}
 
-onUnmounted(() => {
-  window.removeEventListener('chatbot-slots', handleChatbotSlots);
-});
+function initBotGreeting() {
+  const defaultName = authStore.user?.name || 'Calon Siswa';
+  form.full_name = authStore.user?.name || '';
+  form.gender = authStore.user?.jenis_kelamin || props.jenisKelamin;
 
-function handleChatbotSlots(e) {
-  const slots = e.detail;
-  if (!slots) return;
-  
+  messages.value = [
+    {
+      role: 'assistant',
+      text: `Halo ${defaultName}! 👋 Selamat datang di Pendaftaran Siswa Baru SLAPUR.\n\nSaya asisten virtual khusus pendaftaran. Seluruh data Anda akan dikumpulkan melalui percakapan ini secara otomatis.\n\nMari kita mulai! Siapa nama lengkap Anda (sesuai akte kelahiran)?`,
+    },
+  ];
+
+  // Fast trigger helper options for gender or class if needed
+  currentOptions.value = [];
+}
+
+async function sendMessage() {
+  if (!userMsg.value.trim() || loadingBot.value) return;
+
+  const text = userMsg.value.trim();
+  userMsg.value = '';
+
+  messages.value.push({
+    role: 'user',
+    text: text,
+  });
+
+  await scrollToBottom();
+  loadingBot.value = true;
+  currentOptions.value = [];
+
+  try {
+    const sessionId = localStorage.getItem('chat_session_id');
+    const res = await chatbotApi.sendMessage(sessionId, text);
+
+    if (res.session_id) {
+      localStorage.setItem('chat_session_id', res.session_id);
+    }
+
+    // Extract slots returned by backend custom chatbot
+    if (res.slots) {
+      updateFormFromSlots(res.slots);
+    }
+
+    const replyMsg = res.reply?.message || res.reply || 'Terima kasih, data sudah dicatat.';
+    messages.value.push({
+      role: 'assistant',
+      text: replyMsg,
+    });
+
+    // Provide quick dynamic buttons if step asks specific choices
+    if (replyMsg.toLowerCase().includes('jenis kelamin')) {
+      currentOptions.value = ['Laki-laki', 'Perempuan'];
+    } else if (replyMsg.toLowerCase().includes('kelas berapa') || replyMsg.toLowerCase().includes('jenjang')) {
+      currentOptions.value = ['Kelas 7 (SMP)', 'Kelas 8 (SMP)', 'Kelas 9 (SMP)', 'Kelas 10 (SMA)', 'Kelas 11 (SMA)', 'Kelas 12 (SMA)'];
+    }
+
+  } catch (err) {
+    console.error('Chat error:', err);
+    messages.value.push({
+      role: 'assistant',
+      text: 'Maaf, terjadi kendala koneksi. Namun data Anda tetap dicatat.',
+    });
+  } finally {
+    loadingBot.value = false;
+    await scrollToBottom();
+  }
+}
+
+function selectOption(opt) {
+  userMsg.value = typeof opt === 'object' ? opt.label : opt;
+  sendMessage();
+}
+
+function updateFormFromSlots(slots) {
   const isValid = (val) => typeof val === 'string' && val.trim() !== '' && val !== '-' && val !== 'belum diisi';
-  
-  // Map slot chatbot kustom -> field formulir
+
   if (isValid(slots.nama)) form.full_name = slots.nama;
   if (isValid(slots.jenis_kelamin)) form.gender = slots.jenis_kelamin.toLowerCase();
   if (isValid(slots.tempat_lahir)) form.tempat_lahir = slots.tempat_lahir;
-  if (isValid(slots.tanggal_lahir)) form.tanggal_lahir = slots.tanggal_lahir; // format YYYY-MM-DD
+  if (isValid(slots.tanggal_lahir)) form.tanggal_lahir = slots.tanggal_lahir;
   if (isValid(slots.agama)) form.agama = slots.agama;
   if (isValid(slots.alamat)) form.alamat = slots.alamat;
   if (isValid(slots.kelas)) form.kelas_yang_didaftar = String(slots.kelas);
   if (isValid(slots.asal_sekolah)) form.previous_school_name = slots.asal_sekolah;
-  
+
   // Data Orang Tua / Wali
   if (isValid(slots.nama_ayah)) form.nama_ayah = slots.nama_ayah;
   if (isValid(slots.pekerjaan_ayah)) form.pekerjaan_ayah = slots.pekerjaan_ayah;
@@ -274,55 +393,74 @@ function handleChatbotSlots(e) {
   if (isValid(slots.telepon)) form.no_telp_ortu = slots.telepon;
 }
 
+function resetConversation() {
+  initBotGreeting();
+}
+
 async function handleSubmit() {
   errorMsg.value = '';
   successMsg.value = '';
-  
-  // Validasi Frontend Tambahan
-  if (!form.full_name || !form.tempat_lahir || !form.tanggal_lahir || !form.alamat || !form.nama_ayah || !form.nama_ibu || !form.kelas_yang_didaftar || !form.agama || !form.kewarganegaraan || !form.no_telp_ortu) {
-    errorMsg.value = 'Silakan lengkapi semua field yang bertanda bintang (*).';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+
+  if (!isFormComplete.value) {
+    errorMsg.value = 'Data pendaftaran belum lengkap. Silakan selesaikan sesi tanya jawab chatbot.';
     return;
   }
 
-  loading.value = true;
+  isSubmitting.value = true;
   try {
     const res = await pendaftaranApi.submitForm(form);
-    successMsg.value = res.message || 'Data pendaftaran berhasil disimpan.';
+    successMsg.value = res.message || 'Pendaftaran Anda berhasil dikirim dan dicatat!';
     
-    // Langsung redirect ke halaman status
-    router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
-    
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => {
+      router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
+    }, 1500);
+
   } catch (e) {
     errorMsg.value = e.message || 'Gagal menyimpan pendaftaran. Periksa koneksi Anda.';
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   } finally {
-    loading.value = false;
+    isSubmitting.value = false;
   }
 }
+
+onMounted(() => {
+  initBotGreeting();
+});
 </script>
 
 <style scoped>
-.pendaftaran-form-page {
-  padding-bottom: 3rem;
-  max-width: 800px;
+.pendaftaran-chatbot-page {
+  max-width: 1200px;
   margin: 0 auto;
+  padding-bottom: 3rem;
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
 }
 
 .header-section {
-  margin-bottom: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.title-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #ccfbf1;
+  color: #0f766e;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
 }
 
 .page-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: #1e293b;
-  margin: 0 0 0.5rem 0;
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #0f172a;
+  margin: 0 0 0.35rem 0;
 }
 
 .page-subtitle {
-  font-size: 1rem;
+  font-size: 0.95rem;
   color: #64748b;
   margin: 0;
 }
@@ -330,21 +468,10 @@ async function handleSubmit() {
 .alert {
   display: flex;
   align-items: flex-start;
-  gap: 1rem;
+  gap: 0.85rem;
   padding: 1rem 1.25rem;
   border-radius: 12px;
-  margin-bottom: 1.5rem;
-}
-
-.alert h4 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1rem;
-  font-weight: 600;
-}
-
-.alert p {
-  margin: 0;
-  font-size: 0.9rem;
+  margin-bottom: 1.25rem;
 }
 
 .success-alert {
@@ -359,131 +486,335 @@ async function handleSubmit() {
   color: #991b1b;
 }
 
-.form-container {
+/* Grid Layout */
+.chatbot-grid {
+  display: grid;
+  grid-template-columns: 1.3fr 1fr;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+/* Chat Container Card */
+.chat-container-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  height: 650px;
+  overflow: hidden;
 }
 
-.grid-form {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1.25rem;
-}
-
-.full-width {
-  grid-column: 1 / -1;
-}
-
-.form-group label {
-  display: block;
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #334155;
-  margin-bottom: 0.4rem;
-}
-
-.form-group input:not([type="checkbox"]),
-.form-group select,
-.form-group textarea {
-  width: 100%;
-  padding: 0.75rem 1rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 10px;
-  font-size: 0.95rem;
-  font-family: inherit;
-  transition: all 0.2s;
-  background: #fff;
-}
-
-.form-group input:focus,
-.form-group select:focus,
-.form-group textarea:focus {
-  outline: none;
-  border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.1);
-}
-
-.theme-perempuan .form-group input:focus,
-.theme-perempuan .form-group select:focus,
-.theme-perempuan .form-group textarea:focus {
-  border-color: #7c3aed;
-  box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
-}
-
-.checkbox-label {
+.chat-header {
+  background: linear-gradient(135deg, #0f766e, #115e59);
+  color: #ffffff;
+  padding: 1rem 1.25rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  margin-top: 1.5rem;
+  justify-content: space-between;
 }
 
-.checkbox-label input[type="checkbox"] {
-  width: 1.2rem;
-  height: 1.2rem;
-  cursor: pointer;
-  accent-color: var(--primary);
-}
-
-.theme-perempuan .checkbox-label input[type="checkbox"] {
-  accent-color: #7c3aed;
-}
-
-.form-actions {
+.bot-info {
   display: flex;
-  justify-content: flex-end;
-  margin-top: 1rem;
+  align-items: center;
+  gap: 0.75rem;
 }
 
-.btn-submit {
-  display: inline-flex;
+.bot-avatar {
+  width: 38px;
+  height: 38px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.85rem 2rem;
-  background: var(--primary);
-  color: #fff;
+  font-size: 1.2rem;
+}
+
+.bot-info h3 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0;
+}
+
+.online-status {
+  font-size: 0.75rem;
+  color: #5eead4;
+}
+
+.reset-btn {
+  background: rgba(255, 255, 255, 0.15);
   border: none;
-  border-radius: 12px;
-  font-size: 1rem;
+  color: #ffffff;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
   font-weight: 600;
   cursor: pointer;
-  transition: opacity 0.2s;
+  transition: background 0.2s;
 }
 
-.btn-submit:hover:not(:disabled) {
-  opacity: 0.9;
+.reset-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
 }
 
-.btn-submit:disabled {
-  opacity: 0.7;
+.chat-messages {
+  flex: 1;
+  padding: 1.25rem;
+  overflow-y: auto;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.message-bubble {
+  max-width: 82%;
+  padding: 0.85rem 1.1rem;
+  border-radius: 16px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.bot-msg {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  color: #1e293b;
+  align-self: flex-start;
+  border-top-left-radius: 2px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.user-msg {
+  background: #0f766e;
+  color: #ffffff;
+  align-self: flex-end;
+  border-top-right-radius: 2px;
+}
+
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  padding: 0.5rem 0.75rem;
+}
+
+.typing-indicator .dot {
+  width: 6px;
+  height: 6px;
+  background: #0f766e;
+  border-radius: 50%;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
+.quick-options {
+  padding: 0.65rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #f1f5f9;
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+}
+
+.opt-btn {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s;
+}
+
+.opt-btn:hover {
+  background: #dcfce7;
+}
+
+.chat-input-bar {
+  padding: 0.85rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+  display: flex;
+  gap: 0.65rem;
+}
+
+.chat-input-bar input {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.chat-input-bar input:focus {
+  border-color: #0f766e;
+}
+
+.send-btn {
+  background: #0f766e;
+  color: #ffffff;
+  border: none;
+  padding: 0.65rem 1.25rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #115e59;
+}
+
+.send-btn:disabled {
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.theme-laki-laki .btn-submit {
+/* Preview Panel */
+.preview-panel-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 1.25rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.preview-header h3 {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.progress-percent {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #0f766e;
+  background: #f0fdf4;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+}
+
+.progress-bar-bg {
+  height: 8px;
+  background: #f1f5f9;
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #0f766e, #10b981);
+  transition: width 0.3s ease;
+}
+
+.summary-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  max-height: 400px;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.group-box {
+  background: #f8fafc;
+  border: 1px solid #f1f5f9;
+  border-radius: 12px;
+  padding: 0.85rem;
+}
+
+.group-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: #334155;
+  margin: 0 0 0.5rem 0;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 0.35rem;
+}
+
+.item-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.78rem;
+  margin-bottom: 0.35rem;
+}
+
+.item-row .label {
+  color: #64748b;
+}
+
+.item-row .val {
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.item-row .val.filled {
+  color: #0f766e;
+}
+
+.submit-wrap {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.submit-btn {
+  width: 100%;
   background: #0f766e;
+  color: white;
+  border: none;
+  padding: 0.85rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.theme-perempuan .btn-submit {
-  background: #7c3aed;
+.submit-btn:hover:not(:disabled) {
+  background: #115e59;
 }
 
-.spinner {
-  width: 18px;
-  height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+.submit-btn:disabled {
+  background: #cbd5e1;
+  cursor: not-allowed;
 }
 
-@keyframes spin {
-  to { transform: rotate(360deg); }
+.hint-text {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-align: center;
 }
 
-@media (max-width: 640px) {
-  .grid-form {
+@media (max-width: 900px) {
+  .chatbot-grid {
     grid-template-columns: 1fr;
   }
 }

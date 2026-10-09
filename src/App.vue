@@ -2,7 +2,7 @@
   <div class="app" :class="themeClass">
     <router-view />
     <!-- Global Chatbot Widget -->
-    <ChatWidget />
+    <ChatWidget v-if="!isLoginPage" />
   </div>
 </template>
 
@@ -12,6 +12,23 @@ import { useRoute } from 'vue-router';
 import ChatWidget from '@/components/chatbot/ChatWidget.vue';
 
 const route = useRoute();
+
+const loginRoutes = [
+  'Login', 
+  'Register', 
+  'LoginGuru', 
+  'LoginStaff', 
+  'LoginAsrama', 
+  'LoginKafetaria',
+  'BuatAkunGuru',
+  'LupaPasswordGuru',
+  'ResetPasswordGuru'
+];
+
+const isLoginPage = computed(() => {
+  return loginRoutes.includes(route.name);
+});
+
 const themeClass = computed(() => {
   const jk = route.params.jenisKelamin || route.query.jk || 'laki-laki';
   return `theme-${jk}`;

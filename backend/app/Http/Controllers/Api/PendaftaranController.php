@@ -277,11 +277,10 @@ class PendaftaranController extends Controller
         }
 
         $request->validate([
-            'file' => 'required|file|image|mimes:jpeg,jpg,png,gif,webp|max:5120', // max 5MB
+            'file' => 'required|file|image|mimes:jpeg,jpg,png,gif,webp', 
         ], [
             'file.required' => 'Pilih file bukti pembayaran (foto transfer).',
             'file.image' => 'File harus berupa gambar (JPEG, PNG, GIF, WebP).',
-            'file.max' => 'Ukuran file maksimal 5 MB.',
         ]);
 
         $total = (float) config('pendaftaran.total_tagihan', 5_000_000);
@@ -359,13 +358,12 @@ class PendaftaranController extends Controller
 
         $request->validate([
             'jenis' => ['required', 'string', 'max:30', Rule::in($this->allowedDocumentJenis())],
-            'file' => 'required|file|mimes:pdf,jpeg,jpg,png,webp|max:5120', // max 5MB
+            'file' => 'required|file|mimes:pdf,jpeg,jpg,png,webp', 
         ], [
             'jenis.required' => 'Jenis dokumen wajib dipilih.',
             'jenis.in' => 'Jenis dokumen tidak valid.',
             'file.required' => 'File dokumen wajib dipilih.',
             'file.mimes' => 'Format file harus PDF/JPG/PNG/WebP.',
-            'file.max' => 'Ukuran file maksimal 5 MB.',
         ]);
 
         $jenis = $request->input('jenis');

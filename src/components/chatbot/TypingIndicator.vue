@@ -1,12 +1,35 @@
 <template>
-  <div class="flex items-center gap-1.5 p-3 bg-white border border-slate-200 rounded-2xl rounded-tl-none w-fit shadow-xs">
-    <span class="w-2 h-2 bg-teal-500 rounded-full animate-bounce [animation-delay:-0.3s]"></span>
-    <span class="w-2 h-2 bg-teal-600 rounded-full animate-bounce [animation-delay:-0.15s]"></span>
-    <span class="w-2 h-2 bg-teal-700 rounded-full animate-bounce"></span>
-    <span class="text-xs text-slate-400 ml-1.5 font-medium">Asisten mengetik...</span>
+  <div class="typing-indicator">
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="dot"></span>
+    <span class="text">Bot sedang menyusun jawaban...</span>
   </div>
 </template>
 
 <script setup>
-// Component for smooth typing animation during loading state
 </script>
+
+<style scoped>
+.typing-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.75rem;
+  color: #64748b;
+  padding: 0.5rem 0.75rem;
+}
+
+.typing-indicator .dot {
+  width: 6px;
+  height: 6px;
+  background: #0d6e59;
+  border-radius: 50%;
+  animation: bounce 1.2s infinite ease-in-out;
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+</style>

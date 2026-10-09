@@ -560,9 +560,15 @@ class FormAssistant
 
         // 3. Jawaban bawaan
         $builtin = [
-            ['kw' => ['syarat', 'persyaratan', 'berkas', 'dokumen'], 'a' => 'Persyaratan umum: akte kelahiran, kartu keluarga, pas foto, dan rapor/ijazah sekolah asal. Berkas dapat diunggah setelah formulir disimpan.'],
-            ['kw' => ['jadwal', 'kapan', 'dibuka', 'tanggal pendaftaran', 'periode'], 'a' => 'Jadwal pendaftaran dapat dilihat pada halaman utama portal. Untuk kepastian jadwal, silakan hubungi staf kami.'],
-            ['kw' => ['asrama', 'kamar', 'fasilitas'], 'a' => 'Siswa tinggal di asrama dengan fasilitas kamar, kafetaria, dan pengawasan staf asrama.'],
+            ['kw' => ['menu', 'fungsi menu', 'jelaskan menu', 'jadwal', 'dining', 'asrama', 'keuangan', 'kafetaria', 'absensi', 'materi', 'tugas', 'akademik'], 'a' => 'Fungsi menu-menu di portal siswa antara lain:
+- Jadwal & Absensi: Melihat jadwal dan status kehadiran kelas.
+- Asrama & Kafetaria/Dining: Melihat kamar dan jadwal makan.
+- Materi & Tugas: Mengakses bahan ajar dan mengumpulkan tugas.
+- Keuangan: Melihat tagihan dan slip pembayaran.'],
+            ['kw' => ['administrasi', 'dokumen', 'pengumpulan', 'surat', 'berkas'], 'a' => 'Menu Administrasi sangat membantu Anda dalam pengumpulan dokumen akademik, upload berkas pendaftaran, pengajuan surat pengantar/izin, serta administrasi ekstrakurikuler. Anda bisa langsung mengunggah file pdf/gambar di sana.'],
+            ['kw' => ['syarat', 'persyaratan', 'berkas'], 'a' => 'Persyaratan umum: akte kelahiran, kartu keluarga, pas foto, dan rapor/ijazah sekolah asal. Berkas dapat diunggah setelah formulir disimpan.'],
+            ['kw' => ['kapan', 'dibuka', 'tanggal pendaftaran', 'periode'], 'a' => 'Jadwal pendaftaran dapat dilihat pada halaman utama portal. Untuk kepastian jadwal, silakan hubungi staf kami.'],
+            ['kw' => ['kamar', 'fasilitas'], 'a' => 'Siswa tinggal di asrama dengan fasilitas kamar, kafetaria, dan pengawasan staf asrama.'],
             ['kw' => ['beasiswa'], 'a' => 'Informasi beasiswa dapat ditanyakan langsung kepada staf administrasi. Ketik "staf" untuk dihubungkan.'],
             ['kw' => ['status', 'diterima', 'pengumuman', 'hasil'], 'a' => 'Anda dapat melihat status pendaftaran pada menu "Status Pendaftaran" setelah masuk ke akun siswa.'],
             ['kw' => ['cara daftar', 'alur', 'langkah', 'prosedur'], 'a' => 'Alurnya: isi formulir (bisa dibantu saya — ketik "daftar"), unggah berkas, lalu lakukan pembayaran. Status dapat dipantau di portal.'],

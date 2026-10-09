@@ -26,6 +26,7 @@ class SessionManager
             if ($lastActivity->diffInMinutes(now()) > $timeoutMinutes) {
                 $session->update(['status' => 'expired']);
                 $session = null; // force create new
+                $sessionId = null; // force generate new UUID to prevent UNIQUE constraint violation
             }
         }
 

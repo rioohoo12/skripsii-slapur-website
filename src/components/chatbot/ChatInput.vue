@@ -1,40 +1,28 @@
 <template>
-  <div class="p-3 bg-white border-t border-slate-200 flex flex-col gap-1.5">
-    <form @submit.prevent="handleSubmit" class="flex items-center gap-2">
+  <div class="chat-input-bar">
+    <form @submit.prevent="handleSubmit" class="input-form">
       <input 
         v-model="inputMessage" 
         type="text" 
         maxlength="500"
-        placeholder="Ketik pertanyaan Anda di sini..." 
-        class="flex-1 px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm text-slate-800 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all disabled:opacity-60"
+        placeholder="Jawab pertanyaan bot di sini (misal: Nama Lengkap, Pendaftaran, SPP, dll)..." 
         :disabled="isLoading"
         ref="inputRef"
       />
 
       <button 
         type="submit" 
-        class="bg-teal-700 hover:bg-teal-800 active:scale-95 text-white p-2.5 rounded-xl transition-all disabled:opacity-40 disabled:hover:bg-teal-700 disabled:active:scale-100 shadow-xs flex items-center justify-center shrink-0"
+        class="send-btn"
         :disabled="!inputMessage.trim() || isLoading"
-        title="Kirim Pesan"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-        </svg>
+        Kirim
       </button>
     </form>
-
-    <!-- Character Limit Counter -->
-    <div class="flex justify-between items-center px-1 text-[10px] text-slate-400">
-      <span>Tekan Enter untuk mengirim</span>
-      <span :class="{'text-rose-500 font-semibold': charCount >= 480}">
-        {{ charCount }}/500
-      </span>
-    </div>
   </div>
 </template>
 
 <script setup>
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 
 const props = defineProps({
   isLoading: {
@@ -46,8 +34,6 @@ const props = defineProps({
 const emit = defineEmits(['send']);
 const inputMessage = ref('');
 const inputRef = ref(null);
-
-const charCount = computed(() => inputMessage.value.length);
 
 function handleSubmit() {
   if (!inputMessage.value.trim() || props.isLoading) return;
@@ -61,3 +47,55 @@ function focusInput() {
 
 defineExpose({ focusInput });
 </script>
+
+<style scoped>
+.chat-input-bar {
+  padding: 0.85rem 1.25rem;
+  background: #ffffff;
+  border-top: 1px solid #e2e8f0;
+}
+
+.input-form {
+  display: flex;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.input-form input {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  outline: none;
+  transition: border-color 0.2s;
+  color: #1e293b;
+  background: #ffffff;
+}
+
+.input-form input:focus {
+  border-color: #0d6e59;
+}
+
+.send-btn {
+  background: #62a398;
+  color: #ffffff;
+  border: none;
+  padding: 0.65rem 1.35rem;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+  white-space: nowrap;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #0d6e59;
+}
+
+.send-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+</style>
