@@ -1,14 +1,19 @@
 <template>
-  <div class="asrama-page">
+  <div class="asrama-page" :class="themeClass">
     <!-- Header Card -->
-    <div class="header-card">
+    <div class="header-card" :class="isPutri ? 'header-putri' : 'header-putra'">
       <div class="header-info">
-        <span class="badge-tag">FASILITAS ASRAMA SEKOLAH</span>
-        <h2>Status & Informasi Kamar Asrama</h2>
-        <p>Pantau nomor kamar asrama terdaftar dan status persetujuan penempatan / ganti kamar dari Staff Asrama.</p>
+        <span class="badge-tag">
+          {{ isPutri ? '🌸 FASILITAS ASRAMA PUTRI SEKOLAH' : '🏰 FASILITAS ASRAMA PUTRA SEKOLAH' }}
+        </span>
+        <h2>Status & Informasi Kamar {{ asramaTitle }}</h2>
+        <p>
+          Pantau nomor kamar terdaftar, rincian gedung, dan permohonan kamar {{ asramaTitle }} SLAPUR.
+        </p>
       </div>
 
-      <div v-if="asramaData.has_selected_room" class="room-number-card">
+      <!-- Room Number Badge if room belongs to this Dormitory -->
+      <div v-if="hasRoomInThisDorm" class="room-number-card">
         <div class="label">NOMOR KAMAR ANDA</div>
         <div class="number-display">{{ asramaData.nomor_kamar }}</div>
         <div class="sub-info">
@@ -17,18 +22,20 @@
       </div>
     </div>
 
-    <!-- Empty State: Belum Pilih Kamar -->
-    <div v-if="!loading && !asramaData.has_selected_room" class="empty-card">
-      <div class="empty-icon">🏰</div>
-      <h3>Anda Belum Mendaftarkan Kamar Asrama</h3>
-      <p>Silakan lakukan pemilihan nomor kamar asrama terlebih dahulu pada menu pendaftaran kamar.</p>
-      <router-link :to="`/siswa/${jenisKelamin}/pendaftaran/kamar`" class="btn-primary">
-        👉 Pilih Kamar Asrama Sekarang
+    <!-- Empty State: Belum Pilih Kamar di Asrama ini -->
+    <div v-if="!loading && !hasRoomInThisDorm" class="empty-card">
+      <div class="empty-icon">{{ isPutri ? '🏰' : '🏰' }}</div>
+      <h3>Anda Belum Mendaftarkan Kamar {{ asramaTitle }}</h3>
+      <p>
+        Silakan lakukan pemilihan nomor kamar {{ asramaTitle }} yang tersedia untuk menyelesaikan proses registrasi asrama.
+      </p>
+      <router-link :to="`/siswa/${currentGender}/pendaftaran/kamar`" class="btn-primary" :class="isPutri ? 'btn-putri' : 'btn-putra'">
+        👉 Pilih Kamar {{ asramaTitle }} Sekarang
       </router-link>
     </div>
 
-    <!-- Main Content when Room Selected -->
-    <div v-else-if="asramaData.has_selected_room" class="asrama-content">
+    <!-- Main Content when Room Selected in This Dorm -->
+    <div v-else-if="hasRoomInThisDorm" class="asrama-content">
       <!-- Status Persetujuan Banner -->
       <div :class="['status-banner', getStatusClass(asramaData.status_persetujuan)]">
         <div class="status-icon">{{ getStatusIcon(asramaData.status_persetujuan) }}</div>
@@ -38,7 +45,7 @@
             <span v-if="asramaData.requested_nomor_kamar && asramaData.status_persetujuan === 'pending'">
               📌 <strong>Pengajuan Ganti Kamar:</strong> Menunggu verifikasi Staff Asrama untuk pindah dari Kamar <strong>{{ asramaData.nomor_kamar }}</strong> ke Kamar <strong>{{ asramaData.requested_nomor_kamar }}</strong>.
             </span>
-            <span v-else>{{ asramaData.notes || 'Status permohonan kamar aktif anda.' }}</span>
+            <span v-else>{{ asramaData.notes || 'Status permohonan kamar aktif Anda di ' + asramaTitle + '.' }}</span>
           </div>
           <div v-if="asramaData.approved_at" class="status-time">
             Waktu Verifikasi Terakhir: {{ asramaData.approved_at }}
@@ -64,7 +71,11 @@
             </div>
             <div class="detail-item">
               <span class="label">Tipe Gedung:</span>
-              <span class="value">Asrama {{ jenisKelamin === 'perempuan' ? 'Putri' : 'Putra' }}</span>
+              <span class="value">{{ asramaTitle }} (Gedung {{ getGedungName(asramaData.nomor_kamar) }})</span>
+            </div>
+            <div class="detail-item">
+              <span class="label">Lantai:</span>
+              <span class="value">Lantai {{ getLantaiName(asramaData.nomor_kamar) }}</span>
             </div>
             <div class="detail-item">
               <span class="label">Kapasitas Maksimal:</span>
@@ -82,7 +93,7 @@
               :disabled="asramaData.status_persetujuan === 'pending'"
             >
               <span v-if="asramaData.status_persetujuan === 'pending'">⏳ Ganti Kamar Sedang Diproses Staff</span>
-              <span v-else>🔄 Ajukan Ganti Kamar Asrama</span>
+              <span v-else>🔄 Ajukan Ganti Kamar {{ asramaTitle }}</span>
             </button>
           </div>
         </div>
@@ -104,6 +115,76 @@
                 <span v-if="person.is_current_user" class="me-tag">Anda</span>
               </div>
             </div>
+            <div v-if="!asramaData.penghuni || asramaData.penghuni.length === 0" class="empty-roommates">
+              Belum ada data penghuni lain di kamar ini.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Gedung & Kamar Asrama (Identical layout for both Putra and Putri) -->
+    <div class="buildings-section">
+      <div class="section-header">
+        <div>
+          <h3>🏢 Daftar Gedung {{ asramaTitle }}</h3>
+          <p class="section-sub">Struktur gedung dan alokasi kamar khusus santri {{ isPutri ? 'putri' : 'putra' }}.</p>
+        </div>
+        <span class="badge-pill">{{ gedungList.length }} Gedung Aktif</span>
+      </div>
+
+      <div class="buildings-grid">
+        <div 
+          v-for="gedung in gedungList" 
+          :key="gedung.kode" 
+          class="building-card"
+          :class="isPutri ? 'building-putri' : 'building-putra'"
+        >
+          <div class="building-card-header">
+            <div class="building-icon-wrap">{{ gedung.icon }}</div>
+            <div>
+              <h4 class="building-name">{{ gedung.nama }}</h4>
+              <span class="building-floor">{{ gedung.lantai }}</span>
+            </div>
+          </div>
+          <p class="building-desc">{{ gedung.deskripsi }}</p>
+          <div class="building-rooms-list">
+            <span class="rooms-label">Daftar Kamar:</span>
+            <div class="rooms-tags">
+              <span 
+                v-for="kmr in gedung.kamar" 
+                :key="kmr" 
+                class="room-tag"
+                :class="{ active_room: asramaData.nomor_kamar === kmr }"
+              >
+                Kamar {{ kmr }}
+                <small v-if="asramaData.nomor_kamar === kmr"> (Kamar Anda)</small>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section Fasilitas Asrama (Identical layout for both Putra and Putri) -->
+    <div class="facilities-section">
+      <div class="section-header">
+        <div>
+          <h3>✨ Fasilitas Unggulan {{ asramaTitle }}</h3>
+          <p class="section-sub">Kenyamanan dan fasilitas standar asrama terpadu SLAPUR.</p>
+        </div>
+      </div>
+
+      <div class="facilities-grid">
+        <div 
+          v-for="(f, i) in fasilitasAsrama" 
+          :key="i" 
+          class="facility-card"
+        >
+          <div class="facility-icon">{{ f.icon }}</div>
+          <div class="facility-body">
+            <div class="facility-name">{{ f.nama }}</div>
+            <div class="facility-desc">{{ f.desc }}</div>
           </div>
         </div>
       </div>
@@ -114,8 +195,8 @@
       <div class="modal-card">
         <div class="modal-header">
           <div>
-            <h3>🔄 Permohonan Ganti Kamar Asrama</h3>
-            <p class="modal-sub">Pilihlah kamar baru yang tersedia. Pengajuan ini akan diverifikasi oleh Staff Asrama.</p>
+            <h3>🔄 Permohonan Ganti Kamar {{ asramaTitle }}</h3>
+            <p class="modal-sub">Pilihlah kamar baru di {{ asramaTitle }} yang tersedia. Pengajuan ini akan diverifikasi oleh Staff Asrama.</p>
           </div>
           <button class="btn-close" @click="showModalGantiKamar = false">✕</button>
         </div>
@@ -125,12 +206,12 @@
           <div v-if="changeSuccessMsg" class="alert alert-success">{{ changeSuccessMsg }}</div>
 
           <div class="current-room-info">
-            <span>Kamar Saat Ini: <strong>Kamar {{ asramaData.nomor_kamar }}</strong></span>
+            <span>Kamar Saat Ini: <strong>Kamar {{ asramaData.nomor_kamar }}</strong> ({{ asramaTitle }})</span>
           </div>
 
           <div class="form-group">
-            <label class="form-label">Pilih Kamar Tujuan:</label>
-            <div v-if="loadingRooms" class="loading-state">Mengambil daftar kamar...</div>
+            <label class="form-label">Pilih Kamar Tujuan ({{ asramaTitle }}):</label>
+            <div v-if="loadingRooms" class="loading-state">Mengambil daftar kamar {{ asramaTitle }}...</div>
             <div v-else-if="availableRooms.length === 0" class="empty-state">Tidak ada kamar lain yang tersedia saat ini.</div>
             <div v-else class="rooms-grid">
               <div 
@@ -158,6 +239,7 @@
           <button class="btn-cancel" @click="showModalGantiKamar = false">Batal</button>
           <button 
             class="btn-submit" 
+            :class="isPutri ? 'btn-submit-putri' : 'btn-submit-putra'"
             :disabled="!selectedNewKamarId || submittingChange"
             @click="submitGantiKamar"
           >
@@ -170,10 +252,19 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 
+const props = defineProps({
+  jenisKelamin: { type: String, default: '' },
+  asramaType: { type: String, default: '' },
+});
+
+const route = useRoute();
+const router = useRouter();
 const authStore = useAuthStore();
+
 const loading = ref(true);
 const showModalGantiKamar = ref(false);
 const availableRooms = ref([]);
@@ -183,9 +274,18 @@ const submittingChange = ref(false);
 const changeSuccessMsg = ref('');
 const changeErrorMsg = ref('');
 
-const jenisKelamin = computed(() => {
-  return authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+// Determine whether currently in Putri or Putra mode
+const isPutri = computed(() => {
+  if (props.jenisKelamin === 'perempuan') return true;
+  if (props.jenisKelamin === 'laki-laki') return false;
+  if (route.params.jenisKelamin === 'perempuan') return true;
+  if (route.params.jenisKelamin === 'laki-laki') return false;
+  return authStore.user?.jenis_kelamin === 'perempuan';
 });
+
+const currentGender = computed(() => isPutri.value ? 'perempuan' : 'laki-laki');
+const asramaTitle = computed(() => isPutri.value ? 'Asrama Putri' : 'Asrama Putra');
+const themeClass = computed(() => isPutri.value ? 'theme-putri' : 'theme-putra');
 
 const asramaData = ref({
   has_selected_room: false,
@@ -200,6 +300,17 @@ const asramaData = ref({
   notes: '',
   approved_at: null,
   penghuni: [],
+});
+
+// Check if user's selected room belongs to this dorm (Putra rooms A, B, C vs Putri rooms D, E, F)
+const hasRoomInThisDorm = computed(() => {
+  if (!asramaData.value.has_selected_room || !asramaData.value.nomor_kamar) return false;
+  const prefix = asramaData.value.nomor_kamar.charAt(0).toUpperCase();
+  if (isPutri.value) {
+    return ['D', 'E', 'F'].includes(prefix);
+  } else {
+    return ['A', 'B', 'C'].includes(prefix);
+  }
 });
 
 function getStatusClass(status) {
@@ -244,7 +355,8 @@ async function openModalGantiKamar() {
 
   try {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch('/api/pendaftaran/kamar', {
+    const genderQuery = isPutri.value ? 'perempuan' : 'laki-laki';
+    const res = await fetch(`/api/pendaftaran/kamar?jenis_kelamin=${genderQuery}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json',
@@ -269,10 +381,10 @@ async function openModalGantiKamar() {
 function getGedungName(nomor_kamar) {
   if (!nomor_kamar) return 'Asrama';
   const prefix = nomor_kamar.charAt(0).toUpperCase();
-  if (jenisKelamin.value === 'perempuan') {
-    if (prefix === 'A') return 'Krisan';
-    if (prefix === 'B') return 'Melati';
-    if (prefix === 'C') return 'Mawar';
+  if (isPutri.value) {
+    if (prefix === 'D') return 'Krisan';
+    if (prefix === 'E') return 'Melati';
+    if (prefix === 'F') return 'Mawar';
   } else {
     if (prefix === 'A') return 'Anex';
     if (prefix === 'B') return 'Cendrawasih';
@@ -329,6 +441,79 @@ async function submitGantiKamar() {
   }
 }
 
+const gedungList = computed(() => {
+  if (isPutri.value) {
+    return [
+      {
+        kode: 'D',
+        nama: 'Gedung Krisan',
+        icon: '🌸',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['D1', 'D2', 'D3'],
+        deskripsi: 'Gedung utama asrama putri dengan suasana asri, tenang, dan ruang belajar kondusif.',
+      },
+      {
+        kode: 'E',
+        nama: 'Gedung Melati',
+        icon: '🌼',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['E1', 'E2', 'E3'],
+        deskripsi: 'Gedung asrama putri sayap timur dekat dengan taman santri dan fasilitas rekreasi.',
+      },
+      {
+        kode: 'F',
+        nama: 'Gedung Mawar',
+        icon: '🌹',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['F1', 'F2', 'F3'],
+        deskripsi: 'Gedung asrama putri modern dengan kamar mandi higienis dan ventilasi alami yang sejuk.',
+      },
+    ];
+  } else {
+    return [
+      {
+        kode: 'A',
+        nama: 'Gedung Anex',
+        icon: '🏢',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['A1', 'A2', 'A3'],
+        deskripsi: 'Gedung utama asrama putra dengan kapasitas luas dan fasilitas belajar santri terintegrasi.',
+      },
+      {
+        kode: 'B',
+        nama: 'Gedung Cendrawasih',
+        icon: '🐦',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['B1', 'B2', 'B3'],
+        deskripsi: 'Gedung asrama putra sayap timur dengan akses langsung ke lapangan olahraga dan kantin.',
+      },
+      {
+        kode: 'C',
+        nama: 'Gedung Hawk',
+        icon: '🦅',
+        lantai: 'Lantai 1 - 3',
+        kamar: ['C1', 'C2', 'C3'],
+        deskripsi: 'Gedung asrama putra modern yang tenang untuk mendukung konsentrasi belajar santri.',
+      },
+    ];
+  }
+});
+
+const fasilitasAsrama = computed(() => {
+  return [
+    { icon: '🛏️', nama: 'Springbed & Kasur Nyaman', desc: 'Kasur empuk lengkap dengan sprei & bantal standar asrama' },
+    { icon: '🚪', nama: 'Lemari Pribadi', desc: 'Lemari pakaian 2 pintu dengan kunci pengaman per santri' },
+    { icon: '📚', nama: 'Meja Belajar Ergonomis', desc: 'Meja & kursi belajar individual untuk fokus mandiri' },
+    { icon: '🚿', nama: 'Kamar Mandi Bersih', desc: 'Sanitasi higienis dengan pasokan air lancar 24 jam' },
+    { icon: '📶', nama: 'Wi-Fi Cepat 24 Jam', desc: 'Akses internet stabil untuk materi & riset akademik' },
+    { icon: '🛡️', nama: isPutri.value ? 'Bunda Asrama & Resepsionis 24/7' : 'Pembina Asrama Putra 24/7', desc: 'Pengawasan keamanan, absensi malam, dan bimbingan karakter' },
+  ];
+});
+
+watch(() => route.path, () => {
+  fetchAsramaInfo();
+});
+
 onMounted(() => {
   fetchAsramaInfo();
 });
@@ -341,17 +526,26 @@ onMounted(() => {
   gap: 1.5rem;
 }
 
+/* Header Cards */
 .header-card {
-  background: linear-gradient(135deg, #0f1e3c 0%, #1e3a8a 100%);
   color: #ffffff;
   padding: 2.2rem;
   border-radius: 20px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 10px 25px rgba(15, 30, 60, 0.15);
+  box-shadow: 0 10px 25px rgba(15, 30, 60, 0.12);
   flex-wrap: wrap;
   gap: 1.5rem;
+  transition: background 0.3s ease;
+}
+
+.header-card.header-putra {
+  background: linear-gradient(135deg, #0f1e3c 0%, #1e3a8a 100%);
+}
+
+.header-card.header-putri {
+  background: linear-gradient(135deg, #3b0764 0%, #701a75 50%, #831843 100%);
 }
 
 .header-info {
@@ -359,7 +553,8 @@ onMounted(() => {
 }
 
 .badge-tag {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
   padding: 0.35rem 0.85rem;
   border-radius: 999px;
   font-size: 0.75rem;
@@ -370,21 +565,25 @@ onMounted(() => {
 
 .header-info h2 {
   font-size: 1.75rem;
-  font-weight: 700;
+  font-weight: 800;
   margin: 0.6rem 0 0.4rem;
   color: #ffffff;
 }
 
 .header-info p {
-  color: #93c5fd;
+  color: #bfdbfe;
   font-size: 0.95rem;
   margin: 0;
 }
 
+.header-putri .header-info p {
+  color: #fbcfe8;
+}
+
 .room-number-card {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.25);
   padding: 1.5rem 2rem;
   border-radius: 16px;
   text-align: center;
@@ -396,6 +595,10 @@ onMounted(() => {
   font-weight: 700;
   color: #bfdbfe;
   letter-spacing: 1px;
+}
+
+.header-putri .room-number-card .label {
+  color: #fbcfe8;
 }
 
 .number-display {
@@ -411,6 +614,11 @@ onMounted(() => {
   color: #e0f2fe;
 }
 
+.header-putri .sub-info {
+  color: #fce7f3;
+}
+
+/* Empty State Card */
 .empty-card {
   background: #ffffff;
   border: 1px solid #e2e8f0;
@@ -440,19 +648,31 @@ onMounted(() => {
 
 .btn-primary {
   display: inline-block;
-  background: #3b82f6;
   color: #ffffff;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1.75rem;
   border-radius: 12px;
   font-weight: 700;
   text-decoration: none;
-  transition: background 0.2s;
+  transition: all 0.2s;
 }
 
-.btn-primary:hover {
+.btn-primary.btn-putra {
   background: #2563eb;
 }
 
+.btn-primary.btn-putra:hover {
+  background: #1d4ed8;
+}
+
+.btn-primary.btn-putri {
+  background: #db2777;
+}
+
+.btn-primary.btn-putri:hover {
+  background: #be185d;
+}
+
+/* Asrama Content */
 .asrama-content {
   display: flex;
   flex-direction: column;
@@ -476,7 +696,7 @@ onMounted(() => {
 }
 
 .status-banner.pending {
-  background: #fffbebfb;
+  background: #fffbeb;
   border-color: #fde68a;
   color: #92400e;
 }
@@ -562,6 +782,10 @@ onMounted(() => {
   font-weight: 700;
 }
 
+.theme-putri .detail-item .value.highlight {
+  color: #db2777;
+}
+
 .card-footer {
   margin-top: 1.5rem;
   padding-top: 1rem;
@@ -578,13 +802,19 @@ onMounted(() => {
   border-radius: 10px;
   font-weight: 600;
   font-size: 0.9rem;
-  text-decoration: none;
-  transition: background 0.2s;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.btn-secondary:hover {
+.btn-secondary:hover:not(:disabled) {
   background: #e2e8f0;
   color: #0f1e3c;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .roommates-list {
@@ -606,6 +836,11 @@ onMounted(() => {
 .roommate-item.is_me {
   background: #eff6ff;
   border-color: #bfdbfe;
+}
+
+.theme-putri .roommate-item.is_me {
+  background: #fdf2f8;
+  border-color: #fbcfe8;
 }
 
 .roommate-avatar {
@@ -634,6 +869,17 @@ onMounted(() => {
   border-radius: 999px;
 }
 
+.theme-putri .me-tag {
+  background: #db2777;
+}
+
+.empty-roommates {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
 .pending-change-item {
   background: #fffbe6;
   padding: 0.4rem 0.6rem;
@@ -644,6 +890,205 @@ onMounted(() => {
 .change-target {
   color: #d46b08;
   font-weight: 700;
+}
+
+/* Buildings Section */
+.buildings-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.section-header h3 {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #0f1e3c;
+  margin: 0;
+}
+
+.section-sub {
+  font-size: 0.9rem;
+  color: #64748b;
+  margin: 0.25rem 0 0;
+}
+
+.badge-pill {
+  background: #f1f5f9;
+  color: #334155;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.buildings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.building-card {
+  border: 1.5px solid #e2e8f0;
+  border-radius: 16px;
+  padding: 1.4rem;
+  transition: all 0.2s ease;
+  background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+}
+
+.building-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.05);
+}
+
+.building-putra:hover {
+  border-color: #93c5fd;
+}
+
+.building-putri:hover {
+  border-color: #fbcfe8;
+}
+
+.building-card-header {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  margin-bottom: 0.85rem;
+}
+
+.building-icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: #ffffff;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+}
+
+.building-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #0f1e3c;
+  margin: 0;
+}
+
+.building-floor {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.building-desc {
+  font-size: 0.85rem;
+  color: #475569;
+  line-height: 1.4;
+  margin: 0 0 1rem;
+  flex: 1;
+}
+
+.building-rooms-list {
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.rooms-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  margin-bottom: 0.4rem;
+  display: block;
+}
+
+.rooms-tags {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.room-tag {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  padding: 0.25rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.room-tag.active_room {
+  background: #dbeafe;
+  border-color: #3b82f6;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+.theme-putri .room-tag.active_room {
+  background: #fce7f3;
+  border-color: #ec4899;
+  color: #be185d;
+}
+
+/* Facilities Section */
+.facilities-section {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  padding: 1.75rem;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.03);
+}
+
+.facilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.facility-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1.1rem;
+  background: #f8fafc;
+  border-radius: 14px;
+  border: 1px solid #f1f5f9;
+}
+
+.facility-icon {
+  font-size: 1.75rem;
+  line-height: 1;
+}
+
+.facility-body {
+  display: flex;
+  flex-direction: column;
+}
+
+.facility-name {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #0f1e3c;
+  margin-bottom: 0.25rem;
+}
+
+.facility-desc {
+  font-size: 0.8rem;
+  color: #64748b;
+  line-height: 1.35;
 }
 
 /* Modal Styles */
@@ -767,10 +1212,21 @@ onMounted(() => {
   background: #f0f7ff;
 }
 
+.theme-putri .room-option-card:hover:not(.disabled) {
+  border-color: #fbcfe8;
+  background: #fdf2f8;
+}
+
 .room-option-card.selected {
   border-color: #2563eb;
   background: #eff6ff;
   box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.theme-putri .room-option-card.selected {
+  border-color: #db2777;
+  background: #fdf2f8;
+  box-shadow: 0 0 0 2px rgba(219, 39, 119, 0.2);
 }
 
 .room-option-card.disabled {
@@ -840,7 +1296,6 @@ onMounted(() => {
 }
 
 .btn-submit {
-  background: #2563eb;
   color: white;
   border: none;
   padding: 0.65rem 1.5rem;
@@ -850,8 +1305,20 @@ onMounted(() => {
   transition: background 0.2s;
 }
 
-.btn-submit:hover:not(:disabled) {
+.btn-submit.btn-submit-putra {
+  background: #2563eb;
+}
+
+.btn-submit.btn-submit-putra:hover:not(:disabled) {
   background: #1d4ed8;
+}
+
+.btn-submit.btn-submit-putri {
+  background: #db2777;
+}
+
+.btn-submit.btn-submit-putri:hover:not(:disabled) {
+  background: #be185d;
 }
 
 .btn-submit:disabled {

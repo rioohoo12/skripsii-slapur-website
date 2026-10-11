@@ -1,12 +1,24 @@
 <template>
   <div class="asrama-layout">
-    <AsramaSidebar />
+    <AsramaSidebar v-model:mobileOpen="mobileSidebarOpen" />
     <main class="main-content">
       <header class="topbar">
-        <div class="topbar-search">
-          <span class="search-icon">🔍</span>
-          <input type="text" placeholder="Cari data asrama atau informasi..." />
+        <div class="topbar-left">
+          <!-- Mobile Hamburger Toggle -->
+          <button 
+            class="hamburger-btn" 
+            @click="mobileSidebarOpen = true" 
+            aria-label="Buka Menu Asrama"
+          >
+            <span class="hamburger-icon">☰</span>
+          </button>
+
+          <div class="topbar-search">
+            <span class="search-icon">🔍</span>
+            <input type="text" placeholder="Cari data asrama..." />
+          </div>
         </div>
+
         <div class="topbar-actions">
           <div class="notification-wrap">
             <span class="bell-icon">🔔</span>
@@ -43,10 +55,13 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import AsramaSidebar from '@/components/AsramaSidebar.vue';
 import { useAuthStore } from '@/stores/auth';
+import { useAsramaType } from '@/composables/useAsramaType';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { basePath, label, isPutri } = useAsramaType();
 const profileOpen = ref(false);
+const mobileSidebarOpen = ref(false);
 
 const user = computed(() => {
   try {
@@ -56,12 +71,13 @@ const user = computed(() => {
   }
 });
 
-const namaStaff = computed(() => user.value.name || 'Staff Asrama');
+const namaStaff = computed(() => user.value.name || `Staff ${label.value}`);
 
 async function handleLogout() {
   profileOpen.value = false;
+  mobileSidebarOpen.value = false;
   await authStore.logout();
-  router.push('/asrama');
+  router.push(basePath.value);
 }
 </script>
 
@@ -245,20 +261,55 @@ async function handleLogout() {
   overflow-y: auto;
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  color: #1e293b;
+  font-size: 1.25rem;
+  transition: all 0.2s;
+}
+
+.hamburger-btn:hover {
+  background: #e2e8f0;
+}
+
 @media (max-width: 1024px) {
-  .asrama-layout {
-    flex-direction: column;
+  .hamburger-btn {
+    display: flex;
   }
   .topbar {
-    padding: 1rem;
-    flex-direction: column;
-    gap: 1rem;
+    padding: 0.85rem 1.25rem;
   }
   .topbar-search {
-    width: 100%;
+    width: 260px;
   }
   .content-area {
-    padding: 1.5rem;
+    padding: 1.25rem 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .topbar-search {
+    display: none;
+  }
+  .profile-info {
+    display: none;
+  }
+  .content-area {
+    padding: 1rem 0.75rem;
   }
 }
 </style>

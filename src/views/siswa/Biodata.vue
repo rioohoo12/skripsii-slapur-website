@@ -463,4 +463,15 @@ async function onFileChange(e) {
 .wali-content {
   padding-top: 0.25rem;
 }
+
+@media (max-width: 640px) {
+  .profile-section {
+    flex-direction: column;
+    text-align: center;
+  }
+  .data-row {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+}
 </style>

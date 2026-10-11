@@ -1,8 +1,19 @@
 <template>
   <div class="guru-layout">
-    <aside class="guru-sidebar">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="mobileMenuOpen" 
+      class="mobile-backdrop" 
+      @click="mobileMenuOpen = false"
+      aria-hidden="true"
+    ></div>
+
+    <aside class="guru-sidebar" :class="{ 'mobile-open': mobileMenuOpen }">
       <div class="sidebar-brand">
         <h2 class="brand-text">Sistem Staff</h2>
+        <button class="mobile-close-btn" @click="mobileMenuOpen = false" aria-label="Tutup Menu">
+          &times;
+        </button>
       </div>
       <div class="sidebar-user">
         <div class="sidebar-avatar">{{ inisialNama }}</div>
@@ -10,19 +21,19 @@
         <p class="sidebar-role">{{ user?.email || 'staff@sekolah.com' }}</p>
       </div>
       <nav class="sidebar-nav">
-        <router-link to="/administrasi/dashboard" class="nav-item" active-class="active">
+        <router-link to="/administrasi/dashboard" class="nav-item" active-class="active" @click="mobileMenuOpen = false">
           <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
           Dashboard
         </router-link>
-        <router-link to="/administrasi/pendaftaran" class="nav-item" active-class="active">
+        <router-link to="/administrasi/pendaftaran" class="nav-item" active-class="active" @click="mobileMenuOpen = false">
           <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
           Pendaftaran
         </router-link>
-        <router-link to="/administrasi/dokumen" class="nav-item" active-class="active">
+        <router-link to="/administrasi/dokumen" class="nav-item" active-class="active" @click="mobileMenuOpen = false">
           <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
           Dokumen
         </router-link>
-        <router-link to="/administrasi/pembayaran" class="nav-item" active-class="active">
+        <router-link to="/administrasi/pembayaran" class="nav-item" active-class="active" @click="mobileMenuOpen = false">
           <svg class="nav-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z"></path></svg>
           Pembayaran
         </router-link>
@@ -38,6 +49,17 @@
     <main class="guru-main">
       <header class="guru-topbar">
         <div class="topbar-left">
+          <!-- Mobile Hamburger Toggle -->
+          <button 
+            class="hamburger-btn" 
+            @click="mobileMenuOpen = true" 
+            aria-label="Buka Menu"
+          >
+            <svg class="hamburger-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+            </svg>
+          </button>
+          
           <img src="/slapur-logo.png" alt="SLAPUR" class="topbar-logo" />
           <div class="topbar-titles">
             <h1 class="page-title">{{ $route.name?.replace('Administrasi', '') || 'Dashboard' }}</h1>
@@ -79,6 +101,7 @@ import { useRouter } from 'vue-router';
 const authStore = useAuthStore();
 const router = useRouter();
 const profileOpen = ref(false);
+const mobileMenuOpen = ref(false);
 
 const user = computed(() => {
   try {
@@ -97,6 +120,7 @@ const inisialNama = computed(() => {
 
 const handleLogout = () => {
   profileOpen.value = false;
+  mobileMenuOpen.value = false;
   authStore.logout();
   router.push('/administrasi/login');
 };
@@ -351,19 +375,100 @@ const handleLogout = () => {
   opacity: 0;
   transform: translateY(-6px);
 }
+.hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  color: #1e293b;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.hamburger-btn:hover {
+  background: #f1f5f9;
+}
+.hamburger-icon {
+  width: 22px;
+  height: 22px;
+}
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+.mobile-close-btn:hover {
+  color: #ef4444;
+}
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+}
 .guru-content {
   flex: 1;
   padding: 1.5rem;
   overflow: auto;
 }
-@media (max-width: 900px) {
-  .guru-layout {
-    flex-direction: column;
-  }
+@media (max-width: 1024px) {
   .guru-sidebar {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #e2e8f0;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 275px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .guru-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+  .sidebar-brand {
+    justify-content: space-between;
+    padding: 0 1.25rem;
+  }
+  .mobile-close-btn {
+    display: block;
+  }
+  .hamburger-btn {
+    display: flex;
+  }
+  .guru-topbar {
+    padding: 0.75rem 1rem;
+  }
+  .guru-content {
+    padding: 1.25rem 1rem;
+  }
+}
+@media (max-width: 640px) {
+  .topbar-logo {
+    width: 32px;
+    height: 32px;
+  }
+  .page-desc {
+    display: none;
+  }
+  .profile-name {
+    display: none;
+  }
+  .guru-content {
+    padding: 0.85rem 0.75rem;
+  }
+  .page-title {
+    font-size: 1.05rem;
   }
 }
 </style>

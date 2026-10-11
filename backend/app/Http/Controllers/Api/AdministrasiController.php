@@ -187,13 +187,75 @@ class AdministrasiController extends Controller
         // Oldest first for queuing
         $query->orderBy('created_at', 'asc');
 
-        return response()->json($query->paginate($request->per_page ?? 10));
+        $paginated = $query->paginate($request->per_page ?? 10);
+        $paginated->getCollection()->transform(function ($d) {
+            $path = $d->file_path ? ltrim($d->file_path, '/') : null;
+            $d->file_url = $path ? url('storage/' . $path) : null;
+            $d->file_relative_url = $path ? '/storage/' . $path : null;
+            return $d;
+        });
+
+        return response()->json($paginated);
     }
 
     public function getDokumenDetail($id)
     {
         $dokumen = DokumenSiswa::with(['student', 'jenisDokumen', 'verifikator:id,name'])->findOrFail($id);
-        return response()->json($dokumen);
+        
+        $response = $dokumen->toArray();
+        $path = $dokumen->file_path ? ltrim($dokumen->file_path, '/') : null;
+        
+        $exists = $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
+        
+        // Auto-heal if file is not directly found at path
+        if (!$exists && $path && $dokumen->student) {
+            $dir = dirname($path);
+            if (\Illuminate\Support\Facades\Storage::disk('public')->exists($dir)) {
+                $files = \Illuminate\Support\Facades\Storage::disk('public')->files($dir);
+                if (!empty($files)) {
+                    $path = $files[0];
+                    $exists = true;
+                    $dokumen->file_path = $path;
+                    $dokumen->save();
+                    $response['file_path'] = $path;
+                }
+            }
+        }
+        
+        $fileSize = null;
+        $mimeType = null;
+        if ($exists) {
+            try {
+                $fileSize = \Illuminate\Support\Facades\Storage::disk('public')->size($path);
+                $mimeType = \Illuminate\Support\Facades\Storage::disk('public')->mimeType($path);
+            } catch (\Exception $e) {}
+        }
+        
+        $response['file_url'] = $path ? url('storage/' . $path) : null;
+        $response['file_relative_url'] = $path ? '/storage/' . $path : null;
+        $response['file_name'] = $path ? basename($path) : null;
+        $response['file_size'] = $fileSize;
+        $response['file_size_formatted'] = $fileSize ? ($fileSize > 1048576 ? round($fileSize / 1048576, 2) . ' MB' : round($fileSize / 1024, 1) . ' KB') : null;
+        $response['file_mime'] = $mimeType;
+        $response['file_exists'] = $exists;
+        
+        // Other documents of this same student for quick switcher
+        $response['other_documents'] = DokumenSiswa::where('siswa_id', $dokumen->siswa_id)
+            ->with('jenisDokumen')
+            ->orderBy('jenis_dokumen_id', 'asc')
+            ->get()
+            ->map(function ($other) use ($dokumen) {
+                $oPath = $other->file_path ? ltrim($other->file_path, '/') : null;
+                return [
+                    'id' => $other->id,
+                    'jenis_nama' => $other->jenisDokumen?->nama ?? 'Dokumen',
+                    'status' => $other->status,
+                    'file_name' => $oPath ? basename($oPath) : null,
+                    'is_current' => $other->id === $dokumen->id,
+                ];
+            });
+
+        return response()->json($response);
     }
 
     public function verifikasiDokumen(Request $request, $id)
@@ -241,19 +303,57 @@ class AdministrasiController extends Controller
         }
         if ($request->search) {
             $query->whereHas('tagihan.student', function($q) use ($request) {
-                $q->where('full_name', 'like', '%' . $request->search . '%');
+                $q->where('full_name', 'like', '%' . $request->search . '%')
+                  ->orWhere('nomor_pendaftaran', 'like', '%' . $request->search . '%');
             })->orWhere('midtrans_order_id', 'like', '%' . $request->search . '%');
         }
 
         $query->orderBy('created_at', 'desc');
 
-        return response()->json($query->paginate($request->per_page ?? 10));
+        $paginated = $query->paginate($request->per_page ?? 10);
+        $paginated->getCollection()->transform(function ($item) {
+            $path = $item->bukti_transfer_path ? ltrim($item->bukti_transfer_path, '/') : null;
+            $item->bukti_transfer_url = $path ? url('storage/' . $path) : null;
+            $item->bukti_transfer_relative_url = $path ? '/storage/' . $path : null;
+            $item->nominal_display = (float) ($item->nominal_bayar ?: ($item->tagihan?->nominal ?? 0));
+            return $item;
+        });
+
+        return response()->json($paginated);
     }
 
     public function getPembayaranDetail($id)
     {
         $pembayaran = Pembayaran::with(['tagihan.student', 'verifikator:id,name'])->findOrFail($id);
-        return response()->json($pembayaran);
+        $res = $pembayaran->toArray();
+
+        $path = $pembayaran->bukti_transfer_path ? ltrim($pembayaran->bukti_transfer_path, '/') : null;
+        $exists = $path && \Illuminate\Support\Facades\Storage::disk('public')->exists($path);
+
+        $res['bukti_transfer_url'] = $path ? url('storage/' . $path) : null;
+        $res['bukti_transfer_relative_url'] = $path ? '/storage/' . $path : null;
+        $res['file_exists'] = $exists;
+        $res['file_name'] = $path ? basename($path) : null;
+        $res['nominal_display'] = (float) ($pembayaran->nominal_bayar ?: ($pembayaran->tagihan?->nominal ?? 0));
+
+        // Other payments of this student
+        if ($pembayaran->tagihan && $pembayaran->tagihan->siswa_id) {
+            $res['other_payments'] = Pembayaran::whereHas('tagihan', function($q) use ($pembayaran) {
+                $q->where('siswa_id', $pembayaran->tagihan->siswa_id);
+            })->with('tagihan')->orderBy('id', 'asc')->get()->map(function($other) use ($pembayaran) {
+                return [
+                    'id' => $other->id,
+                    'tagihan_jenis' => $other->tagihan?->jenis ?? 'Tagihan',
+                    'nominal' => (float) ($other->nominal_bayar ?: ($other->tagihan?->nominal ?? 0)),
+                    'status' => $other->status,
+                    'is_current' => $other->id === $pembayaran->id,
+                ];
+            });
+        } else {
+            $res['other_payments'] = [];
+        }
+
+        return response()->json($res);
     }
 
     public function verifikasiPembayaran(Request $request, $id)
@@ -263,28 +363,40 @@ class AdministrasiController extends Controller
 
         $validated = $request->validate([
             'status' => 'required|in:terverifikasi,ditolak',
+            'catatan' => 'nullable|string',
         ]);
-
-        if ($pembayaran->status === 'terverifikasi') {
-            return response()->json(['message' => 'Pembayaran ini sudah diverifikasi sebelumnya.'], 400);
-        }
 
         DB::beginTransaction();
         try {
             $pembayaran->update([
                 'status' => $validated['status'],
+                'catatan' => $validated['catatan'] ?? null,
                 'diverifikasi_oleh' => $request->user()->id,
                 'paid_at' => $validated['status'] === 'terverifikasi' ? Carbon::now() : null,
             ]);
 
-            if ($validated['status'] === 'terverifikasi') {
-                $tagihan = $pembayaran->tagihan;
-                $tagihan->update(['status' => 'lunas']);
+            $tagihan = $pembayaran->tagihan;
+            if ($tagihan) {
+                if ($validated['status'] === 'terverifikasi') {
+                    $tagihan->update(['status' => 'lunas']);
 
-                // Buka tahap berikutnya (pemilihan kamar) sesuai sequence diagram
-                // student status_pendaftaran updated if it was just registration fee
-                if ($tagihan->jenis === 'pendaftaran') {
-                    $tagihan->student->update(['status_pendaftaran' => 'kamar']);
+                    if ($tagihan->jenis === 'pendaftaran') {
+                        $tagihan->student->update([
+                            'has_paid_registration' => 1,
+                            'status_pendaftaran' => 'kamar',
+                        ]);
+                        \App\Models\PendaftaranPayment::where('user_id', $tagihan->student->user_id)->update([
+                            'status' => 'terverifikasi',
+                            'verified_at' => Carbon::now(),
+                        ]);
+                    }
+                } else if ($validated['status'] === 'ditolak') {
+                    $tagihan->update(['status' => 'ditolak']);
+                    if ($tagihan->jenis === 'pendaftaran') {
+                        \App\Models\PendaftaranPayment::where('user_id', $tagihan->student->user_id)->update([
+                            'status' => 'ditolak',
+                        ]);
+                    }
                 }
             }
 
@@ -299,12 +411,10 @@ class AdministrasiController extends Controller
 
             DB::commit();
 
-            // e.g. Mail::to($pembayaran->tagihan->student->email)->queue(new BuktiPembayaranMail($pembayaran));
-
-            return response()->json(['message' => 'Pembayaran berhasil diproses', 'pembayaran' => $pembayaran]);
+            return response()->json(['message' => 'Status pembayaran berhasil diperbarui', 'pembayaran' => $pembayaran]);
         } catch (\Exception $e) {
             DB::rollBack();
-            return response()->json(['message' => 'Terjadi kesalahan sistem.'], 500);
+            return response()->json(['message' => 'Terjadi kesalahan sistem: ' . $e->getMessage()], 500);
         }
     }
 

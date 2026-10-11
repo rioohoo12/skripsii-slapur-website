@@ -80,7 +80,7 @@ class AuthController extends Controller
         ]);
 
         $user = User::where('email', $request->email)
-            ->first(['id', 'name', 'email', 'password', 'role', 'avatar']);
+            ->first(['id', 'name', 'email', 'password', 'role', 'avatar', 'jenis_kelamin']);
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             throw ValidationException::withMessages([
@@ -96,6 +96,13 @@ class AuthController extends Controller
             ]);
         }
 
+        $asramaType = null;
+        if ($role === 'staff_asrama') {
+            $asramaType = (str_contains(strtolower($user->email), 'putri') || $user->jenis_kelamin === 'perempuan')
+                ? 'putri'
+                : 'putra';
+        }
+
         $token = $user->createToken('slapur-login-staff')->plainTextToken;
 
         return response()->json([
@@ -106,6 +113,8 @@ class AuthController extends Controller
                 'email' => $user->email,
                 'role' => $user->role,
                 'avatar' => $user->avatar,
+                'jenis_kelamin' => $user->jenis_kelamin,
+                'asrama_type' => $asramaType,
             ],
             'token' => $token,
             'token_type' => 'Bearer',

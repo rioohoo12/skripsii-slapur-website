@@ -288,4 +288,16 @@ async function handleRegister() {
   text-decoration: underline;
   color: #0c6b63 !important;
 }
+
+@media (max-width: 640px) {
+  .register-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 16px;
+  }
+  .register-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+}
 </style>

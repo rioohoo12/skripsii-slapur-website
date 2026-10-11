@@ -172,4 +172,16 @@ async function handleLogin() {
 .login-footer { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; }
 .login-footer .link { font-weight: 600; text-decoration: none; }
 .login-footer .link:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .login-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 16px;
+  }
+  .login-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+}
 </style>

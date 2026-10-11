@@ -94,9 +94,22 @@ class ContextBuilder
                 }
             }
 
-            $context['documents'] = StudentDocument::where('user_id', $user->id)
-                ->get(['jenis', 'status'])
-                ->toArray();
+            $studentContext = \App\Models\Student::where('user_id', $user->id)->first();
+            if ($studentContext) {
+                $docs = \App\Models\DokumenSiswa::where('siswa_id', $studentContext->id)->get();
+                $mapIdToJenis = [
+                    1 => 'kk',
+                    2 => 'akte_kelahiran',
+                    3 => 'raport',
+                    4 => 'pas_foto',
+                ];
+                $context['documents'] = $docs->map(fn($d) => [
+                    'jenis' => $mapIdToJenis[$d->jenis_dokumen_id] ?? 'lainnya',
+                    'status' => $d->status === 'disetujui' ? 'terverifikasi' : $d->status,
+                ])->toArray();
+            } else {
+                $context['documents'] = [];
+            }
         }
 
         return $context;

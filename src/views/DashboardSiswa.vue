@@ -95,6 +95,7 @@ const namaSiswa = computed(() => user.value.name || 'Siswa');
 
 async function handleLogout() {
   profileOpen.value = false;
+  pendaftaranStore.reset();
   await authStore.logout();
   router.push('/siswa');
 }
@@ -102,11 +103,18 @@ async function handleLogout() {
 function checkAccess(toPath) {
   if (pendaftaranStore.loading || pendaftaranStore.isComplete) return;
   
-  const isAllowedRoute = toPath.includes('/pendaftaran') || toPath.includes('/biodata') || toPath.includes('/clearance') || toPath.includes('/administrasi') || toPath.includes('/tugas') || toPath.includes('/absensi');
+  const isAllowedRoute = toPath.includes('/dashboard') ||
+                         toPath.includes('/dokumen') ||
+                         toPath.includes('/pendaftaran') || 
+                         toPath.includes('/biodata') || 
+                         toPath.includes('/clearance') || 
+                         toPath.includes('/administrasi') || 
+                         toPath.includes('/tugas') || 
+                         toPath.includes('/absensi');
   
   if (!isAllowedRoute) {
-    alert('Anda harus menyelesaikan seluruh tahapan pendaftaran terlebih dahulu sebelum mengakses menu ini.');
-    router.push(`/siswa/${props.jenisKelamin}/pendaftaran/form`);
+    alert('Silakan selesaikan seluruh tahapan pendaftaran terlebih dahulu untuk membuka menu ini.');
+    router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
   }
 }
 

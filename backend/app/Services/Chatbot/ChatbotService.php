@@ -25,7 +25,7 @@ class ChatbotService
     /**
      * Primary orchestrator for handling user messages.
      */
-    public function handleMessage(string $messageText, ?string $sessionId = null, ?User $user = null): array
+    public function handleMessage(string $messageText, ?string $sessionId = null, ?User $user = null, ?string $mode = null): array
     {
         $startTime = microtime(true);
         $role = strtolower($user?->role ?? 'umum');
@@ -47,6 +47,9 @@ class ChatbotService
         $session->update(['role' => $role]);
 
         $currentSlots = json_decode($session->slots, true) ?: [];
+        if ($mode) {
+            $currentSlots['_mode'] = $mode;
+        }
         $history = $this->sessionManager->getRecentContext($session, 5);
 
         // 3. Preprocessing (Cleaning & Intent Detection)
@@ -94,7 +97,7 @@ class ChatbotService
             case 'llm':
             default:
                 // Resolve local data context if available
-                $localContext = $this->localDataResolver->resolve($intent, $user, $currentSlots);
+                $localContext = $this->localDataResolver->resolve($intent, $user, $currentSlots, $messageText);
                 $systemPrompt = $this->promptBuilder->build($user, $localContext);
 
                 // Call OpenAI with 10s timeout & 2 retries
@@ -106,7 +109,7 @@ class ChatbotService
                     $tokens = $llmResult['tokens'];
                 } else {
                     // Fallback message when OpenAI API is unconfigured/down/timeout
-                    $replyText = $this->getFallbackMessage($messageText, $intent);
+                    $replyText = $this->getFallbackMessage($messageText, $intent, $user);
                     $source = 'fallback';
                 }
                 break;
@@ -152,9 +155,16 @@ class ChatbotService
     /**
      * Fallback message when LLM/API is unavailable or times out.
      */
-    protected function getFallbackMessage(string $message, string $intent): string
+    protected function getFallbackMessage(string $message, string $intent, ?User $user = null): string
     {
-        return "Maaf, sistem AI kami sedang sibuk atau mengalami kendala koneksi. " .
-               "Anda tetap dapat menanyakan informasi seputar Pendaftaran (ketik \"daftar\"), Biaya, Asrama, atau ketik \"staf\" untuk terhubung dengan petugas.";
+        $role = strtolower($user?->role ?? 'umum');
+        return match ($role) {
+            'staff', 'administrasi' => "Halo Staff Administrasi! Anda dapat menanyakan panduan menu, ketik \"info siswa [nama]\" untuk mencari data murid lengkap, \"berkas pending\", atau \"antrean pembayaran\".",
+            'staff_asrama' => "Halo Staff Asrama! Anda dapat menanyakan panduan menu asrama, \"total murid asrama putra\", \"total murid asrama putri\", \"kamar kosong\", atau \"persetujuan kamar\".",
+            'staff_kafetaria' => "Halo Staff Kafetaria! Anda dapat menanyakan panduan menu kafetaria, \"menu hari ini\", \"rekap siswa makan\", atau \"panduan scan\".",
+            'siswa', 'murid' => "Halo! Kamu dapat menanyakan panduan menu siswa, \"tagihan saya\", \"jadwal pelajaran\", \"kamar asrama\", atau ketik \"staf\" untuk bantuan.",
+            'guru' => "Halo Bapak/Ibu Guru! Anda dapat menanyakan \"jadwal mengajar\", \"panduan absensi\", atau \"panduan nilai\".",
+            default => "Maaf, sistem AI sedang sibuk. Anda dapat menanyakan seputar Pendaftaran, Biaya & SPP, Asrama, atau ketik \"staf\" untuk bantuan operator.",
+        };
     }
 }

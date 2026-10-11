@@ -1,56 +1,86 @@
 <template>
-  <aside class="sidebar">
-    <div class="sidebar-header">
-      <div class="logo-wrap">
-        <img src="/slapur-logo.png" alt="Slapur Asrama" class="brand-logo" />
-        <div class="brand-text">
-          <span class="brand-name">Slapur</span>
-          <span class="brand-sub">Asrama</span>
+  <div>
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="mobileOpen" 
+      class="mobile-backdrop"
+      @click="closeMobile"
+    ></div>
+
+    <aside 
+      class="sidebar" 
+      :class="[isPutri ? 'sidebar-putri' : 'sidebar-putra', { 'mobile-open': mobileOpen }]"
+    >
+      <div class="sidebar-header">
+        <div class="logo-wrap">
+          <img src="/slapur-logo.png" :alt="label" class="brand-logo" />
+          <div class="brand-text">
+            <span class="brand-name">Slapur</span>
+            <span class="brand-sub">{{ label }}</span>
+          </div>
         </div>
+        <button class="mobile-close-btn" @click="closeMobile" aria-label="Tutup Menu">
+          &times;
+        </button>
       </div>
-    </div>
-    
-    <nav class="sidebar-nav">
-      <router-link
-        v-for="item in menuItems"
-        :key="item.path"
-        :to="item.path"
-        class="nav-item"
-        active-class="active"
-        :exact-active-class="item.exact ? 'active' : ''"
-      >
-        <span class="nav-icon">{{ item.icon }}</span>
-        <span class="nav-label">{{ item.label }}</span>
-      </router-link>
-    </nav>
-    
-    <div class="sidebar-footer">
-      <button class="logout-btn" @click="handleLogout">
-        <span class="nav-icon">🚪</span>
-        <span class="nav-label">Keluar</span>
-      </button>
-    </div>
-  </aside>
+      
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in menuItems"
+          :key="item.path"
+          :to="item.path"
+          class="nav-item"
+          active-class="active"
+          :exact-active-class="item.exact ? 'active' : ''"
+          @click="closeMobile"
+        >
+          <span class="nav-icon">{{ item.icon }}</span>
+          <span class="nav-label">{{ item.label }}</span>
+        </router-link>
+      </nav>
+      
+      <div class="sidebar-footer">
+        <button class="logout-btn" @click="handleLogout">
+          <span class="nav-icon">🚪</span>
+          <span class="nav-label">Keluar</span>
+        </button>
+      </div>
+    </aside>
+  </div>
 </template>
 
 <script setup>
 import { computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
+import { useAsramaType } from '@/composables/useAsramaType';
+
+const props = defineProps({
+  mobileOpen: { type: Boolean, default: false }
+});
+
+const emit = defineEmits(['update:mobileOpen', 'close']);
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { basePath, label, isPutri } = useAsramaType();
 
 const menuItems = computed(() => [
-  { path: `/asrama/dashboard`, label: 'Dashboard', icon: '📊', exact: true },
-  { path: `/asrama/kamar`, label: 'Manajemen Kamar', icon: '🛏️', exact: true },
-  { path: `/asrama/persetujuan`, label: 'Persetujuan Kamar', icon: '✅', exact: true },
-  { path: `/asrama/penghuni`, label: 'Penghuni & Mutasi', icon: '👥', exact: true },
+  { path: `${basePath.value}/dashboard`, label: 'Dashboard', icon: '📊', exact: true },
+  { path: `${basePath.value}/kamar`, label: 'Manajemen Kamar', icon: '🛏️', exact: true },
+  { path: `${basePath.value}/persetujuan`, label: 'Persetujuan Kamar', icon: '✅', exact: true },
+  { path: `${basePath.value}/penghuni`, label: 'Penghuni & Mutasi', icon: '👥', exact: true },
 ]);
 
+function closeMobile() {
+  emit('update:mobileOpen', false);
+  emit('close');
+}
+
 async function handleLogout() {
+  closeMobile();
   await authStore.logout();
-  router.push('/asrama');
+  router.push(basePath.value);
 }
 </script>
 
@@ -58,7 +88,6 @@ async function handleLogout() {
 .sidebar {
   width: 260px;
   min-height: 100vh;
-  background-color: #2e1065;
   color: #ffffff;
   display: flex;
   flex-direction: column;
@@ -66,6 +95,15 @@ async function handleLogout() {
   position: sticky;
   top: 0;
   z-index: 20;
+  transition: background-color 0.25s ease;
+}
+
+.sidebar-putra {
+  background-color: #0f1e3c;
+}
+
+.sidebar-putri {
+  background-color: #2e1065;
 }
 
 .sidebar-header {
@@ -172,11 +210,56 @@ async function handleLogout() {
   color: #ef4444;
 }
 
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.75rem;
+  color: #c4b5fd;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+.mobile-close-btn:hover {
+  color: #ffffff;
+}
+
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+}
+
 @media (max-width: 1024px) {
   .sidebar {
-    width: 100%;
-    min-height: auto;
-    position: static;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 275px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1.5rem 1.25rem;
+  }
+
+  .mobile-close-btn {
+    display: block;
   }
 }
 </style>

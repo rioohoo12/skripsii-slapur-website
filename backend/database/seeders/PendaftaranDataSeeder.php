@@ -16,7 +16,14 @@ class PendaftaranDataSeeder extends Seeder
 
     private function seedKamar(): void
     {
-        $nomor = ['A1', 'A2', 'A3', 'A4', 'A5', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'C5'];
+        $nomor = [
+            'A1', 'A2', 'A3', 'A4', 'A5', // Male
+            'B1', 'B2', 'B3', 'B4', 'B5', // Male
+            'C1', 'C2', 'C3', 'C4', 'C5', // Male
+            'D1', 'D2', 'D3', 'D4', 'D5', // Female
+            'E1', 'E2', 'E3', 'E4', 'E5', // Female
+            'F1', 'F2', 'F3', 'F4', 'F5'  // Female
+        ];
         foreach ($nomor as $i => $n) {
             PendaftaranKamar::firstOrCreate(
                 ['nomor_kamar' => $n],

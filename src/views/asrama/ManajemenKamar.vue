@@ -1,8 +1,13 @@
 <template>
-  <div class="manajemen-kamar">
+  <div class="manajemen-kamar" :class="isPutri ? 'is-putri' : 'is-putra'">
     <div class="page-header">
-      <h2>Manajemen Kamar</h2>
-      <button class="btn-primary" @click="openModal()">+ Tambah Kamar Baru</button>
+      <div>
+        <h2>Manajemen Kamar {{ label }}</h2>
+        <p class="page-sub">Kelola daftar kamar dan kapasitas khusus {{ label.toLowerCase() }}.</p>
+      </div>
+      <button class="btn-primary" :class="isPutri ? 'btn-putri' : 'btn-putra'" @click="openModal()">
+        + Tambah Kamar {{ label }}
+      </button>
     </div>
 
     <div class="table-container">
@@ -18,8 +23,8 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="6" class="text-center py-4">Memuat data kamar...</td></tr>
-          <tr v-else-if="kamarList.length === 0"><td colspan="6" class="text-center py-4 text-muted">Belum ada data kamar.</td></tr>
+          <tr v-if="loading"><td colspan="6" class="text-center py-4">Memuat data kamar {{ label.toLowerCase() }}...</td></tr>
+          <tr v-else-if="kamarList.length === 0"><td colspan="6" class="text-center py-4 text-muted">Belum ada data kamar {{ label.toLowerCase() }}.</td></tr>
           <tr v-else v-for="kamar in kamarList" :key="kamar.id">
             <td><strong>{{ kamar.nomor_kamar }}</strong></td>
             <td>{{ kamar.kapasitas }}</td>
@@ -48,11 +53,16 @@
     <!-- Modal Form Kamar -->
     <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
       <div class="modal-content">
-        <h3>{{ isEdit ? 'Edit Kamar' : 'Tambah Kamar Baru' }}</h3>
+        <h3>{{ isEdit ? `Edit Kamar ${label}` : `Tambah Kamar Baru (${label})` }}</h3>
         <form @submit.prevent="saveKamar">
           <div class="form-group">
-            <label>Nomor Kamar</label>
-            <input type="text" v-model="form.nomor_kamar" required placeholder="Contoh: A101" />
+            <label>Nomor Kamar (Gedung {{ isPutri ? 'D, E, atau F' : 'A, B, atau C' }})</label>
+            <input 
+              type="text" 
+              v-model="form.nomor_kamar" 
+              required 
+              :placeholder="isPutri ? 'Contoh: D1, E2, F3' : 'Contoh: A1, B2, C3'" 
+            />
           </div>
           <div class="form-group">
             <label>Kapasitas</label>
@@ -73,7 +83,7 @@
           <p v-if="errorMsg" class="error-msg">{{ errorMsg }}</p>
           <div class="modal-actions">
             <button type="button" class="btn-secondary" @click="closeModal">Batal</button>
-            <button type="submit" class="btn-primary" :disabled="saving">
+            <button type="submit" class="btn-primary" :class="isPutri ? 'btn-putri' : 'btn-putra'" :disabled="saving">
               {{ saving ? 'Menyimpan...' : 'Simpan' }}
             </button>
           </div>
@@ -84,7 +94,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useAsramaType } from '@/composables/useAsramaType';
+
+const { type, isPutri, label, withType } = useAsramaType();
 
 const kamarList = ref([]);
 const loading = ref(true);
@@ -101,6 +114,7 @@ const form = ref({
   catatan_fasilitas: ''
 });
 
+watch(type, () => fetchKamar());
 onMounted(() => {
   fetchKamar();
 });
@@ -108,12 +122,12 @@ onMounted(() => {
 async function fetchKamar() {
   loading.value = true;
   try {
-    const res = await fetch('/api/staff/asrama/kamar', {
+    const res = await fetch(withType('/api/staff/asrama/kamar'), {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
     });
     if (res.ok) {
       const data = await res.json();
-      kamarList.value = data.data;
+      kamarList.value = data.data || [];
     }
   } catch (e) {
     console.error(e);
@@ -205,13 +219,13 @@ function getKondisiBadge(kondisi) {
 .btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
 .btn-secondary:hover { background: #cbd5e1; }
 
-.table-container { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
+.table-container { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto; width: 100%; }
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
-.data-table th { background: #f8fafc; padding: 1rem; color: #475569; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+.data-table th { background: #f8fafc; padding: 1rem; color: #475569; font-weight: 600; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 .data-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
 .data-table tr:last-child td { border-bottom: none; }
 
-.badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+.badge { padding: 0.25rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; white-space: nowrap; }
 .badge-success { background: #dcfce7; color: #166534; }
 .badge-warning { background: #fef08a; color: #854d0e; }
 .badge-danger { background: #fee2e2; color: #991b1b; }
@@ -221,8 +235,8 @@ function getKondisiBadge(kondisi) {
 .btn-icon { background: none; border: none; font-size: 1.1rem; cursor: pointer; padding: 0.2rem; border-radius: 4px; }
 .btn-icon:hover { background: #f1f5f9; }
 
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal-content { background: white; padding: 2rem; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+.modal-content { background: white; padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 .modal-content h3 { margin: 0 0 1.5rem 0; color: #1e293b; }
 
 .form-group { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
@@ -230,4 +244,21 @@ function getKondisiBadge(kondisi) {
 .form-group input, .form-group select, .form-group textarea { padding: 0.6rem; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 1rem; margin-top: 1.5rem; }
 .error-msg { color: #ef4444; font-size: 0.85rem; margin-bottom: 1rem; }
+
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+  }
+  .btn-primary {
+    width: 100%;
+    text-align: center;
+  }
+  .data-table th, 
+  .data-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

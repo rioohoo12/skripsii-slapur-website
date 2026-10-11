@@ -1,4 +1,34 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import { getStaffAsramaType } from '@/composables/useAsramaType';
+
+/**
+ * Buat route staff asrama untuk satu tipe (putra / putri).
+ * Kedua asrama memakai komponen yang sama; perbedaannya hanya meta.asramaType.
+ */
+function buildAsramaRoutes(type) {
+  const base = `/asrama${type}`;
+  const suffix = type === 'putri' ? 'Putri' : 'Putra';
+  const meta = { asramaType: type };
+  return [
+    {
+      path: base,
+      name: `LoginAsrama${suffix}`,
+      component: () => import('@/views/asrama/LoginAsrama.vue'),
+      meta,
+    },
+    {
+      path: base,
+      component: () => import('@/views/asrama/AsramaLayout.vue'),
+      meta,
+      children: [
+        { path: 'dashboard', name: `DashboardAsrama${suffix}`, component: () => import('@/views/asrama/DashboardAsrama.vue') },
+        { path: 'kamar', name: `ManajemenKamar${suffix}`, component: () => import('@/views/asrama/ManajemenKamar.vue') },
+        { path: 'persetujuan', name: `PersetujuanKamar${suffix}`, component: () => import('@/views/asrama/PersetujuanKamar.vue') },
+        { path: 'penghuni', name: `PenghuniKamar${suffix}`, component: () => import('@/views/asrama/PenghuniKamar.vue') },
+      ],
+    },
+  ];
+}
 
 const routes = [
   {
@@ -76,22 +106,11 @@ const routes = [
     ],
   },
 
-  {
-    path: '/asrama',
-    name: 'LoginAsrama',
-    component: () => import('@/views/asrama/LoginAsrama.vue'),
-  },
-  {
-    path: '/asrama',
-    component: () => import('@/views/asrama/AsramaLayout.vue'),
-    children: [
-      { path: '', redirect: '/asrama/dashboard' },
-      { path: 'dashboard', name: 'DashboardAsrama', component: () => import('@/views/asrama/DashboardAsrama.vue') },
-      { path: 'kamar', name: 'ManajemenKamar', component: () => import('@/views/asrama/ManajemenKamar.vue') },
-      { path: 'persetujuan', name: 'PersetujuanKamar', component: () => import('@/views/asrama/PersetujuanKamar.vue') },
-      { path: 'penghuni', name: 'PenghuniKamar', component: () => import('@/views/asrama/PenghuniKamar.vue') },
-    ],
-  },
+  // --- Staff Asrama: dipisah menjadi Asrama Putra & Asrama Putri (tampilan sama) ---
+  ...buildAsramaRoutes('putra'),
+  ...buildAsramaRoutes('putri'),
+  // Route lama /asrama dihapus -> arahkan ke asrama putra
+  { path: '/asrama/:pathMatch(.*)*', redirect: '/asramaputra' },
   {
     path: '/kafetaria',
     name: 'LoginKafetaria',
@@ -115,11 +134,13 @@ const routes = [
     children: [
       { path: '', redirect: (r) => ({ path: `/siswa/${r.params.jenisKelamin}/dashboard` }) },
       { path: 'dashboard', name: 'Dashboard', component: () => import('@/views/siswa/DashboardHome.vue') },
+      { path: 'dokumen', name: 'SiswaDokumen', component: () => import('@/views/siswa/DokumenSiswa.vue') },
       { path: 'jadwal', name: 'JadwalPelajaran', component: () => import('@/views/siswa/JadwalPelajaran.vue') },
       { path: 'dining', name: 'Dining', component: () => import('@/views/siswa/Dining.vue') },
       { path: 'asrama', name: 'Asrama', component: () => import('@/views/siswa/Asrama.vue') },
       { path: 'biodata', name: 'Biodata', component: () => import('@/views/siswa/Biodata.vue') },
-      { path: 'keuangan', name: 'Keuangan', component: () => import('@/views/siswa/Keuangan.vue') },
+      { path: 'tagihan', name: 'SiswaTagihan', component: () => import('@/views/siswa/TagihanSiswa.vue') },
+      { path: 'keuangan', redirect: (r) => ({ path: `/siswa/${r.params.jenisKelamin}/tagihan` }) },
       { path: 'kafetaria', name: 'Kafetaria', component: () => import('@/views/siswa/Kafetaria.vue') },
       { path: 'absensi', name: 'Absensi', component: () => import('@/views/siswa/Absensi.vue') },
       { path: 'materi', name: 'SiswaMateri', component: () => import('@/views/siswa/SiswaMateri.vue') },
@@ -133,14 +154,14 @@ const routes = [
       { path: 'pendaftaran/permohonan', name: 'PermohonanPendaftaran', component: () => import('@/views/siswa/PendaftaranPermohonan.vue') },
       { path: 'pendaftaran/kamar', name: 'PilihKamar', component: () => import('@/views/siswa/PilihKamar.vue') },
       { path: 'pendaftaran/kurikulum', name: 'Kurikulum', component: () => import('@/views/siswa/Kurikulum.vue') },
-      { path: 'pendaftaran/dokumen', name: 'PendaftaranDokumen', component: () => import('@/views/siswa/AdministrasiDokumen.vue') },
+      { path: 'pendaftaran/dokumen', name: 'PendaftaranDokumen', component: () => import('@/views/siswa/DokumenSiswa.vue') },
       { path: 'clearance', name: 'ClearanceSlip', component: () => import('@/views/siswa/ClearanceMid.vue') },
       { path: 'clearance/pembayaran-pendaftaran', name: 'ClearancePembayaran', component: () => import('@/views/siswa/ClearancePembayaran.vue') },
       { path: 'clearance/mid', name: 'ClearanceMid', component: () => import('@/views/siswa/ClearanceMid.vue') },
       { path: 'clearance/final', name: 'ClearanceFinal', component: () => import('@/views/siswa/ClearanceFinal.vue') },
       { path: 'administrasi', name: 'Administrasi', component: () => import('@/views/siswa/AdministrasiSurat.vue') },
       { path: 'administrasi/surat', name: 'PermohonanSurat', component: () => import('@/views/siswa/AdministrasiSurat.vue') },
-      { path: 'administrasi/dokumen', name: 'UploadDokumen', component: () => import('@/views/siswa/AdministrasiDokumen.vue') },
+      { path: 'administrasi/dokumen', name: 'UploadDokumen', component: () => import('@/views/siswa/DokumenSiswa.vue') },
       { path: 'administrasi/ekstrakurikuler', name: 'Ekstrakurikuler', component: () => import('@/views/siswa/AdministrasiEkstrakurikuler.vue') },
     ],
   },
@@ -188,20 +209,32 @@ router.beforeEach((to, _from, next) => {
     return;
   }
 
-  const toAsrama = to.path.startsWith('/asrama');
   const isAsramaStaff = authStore.isAsramaStaff;
+  const asramaMatch = to.path.match(/^\/asrama(putra|putri)(\/|$)/);
 
-  if (toAsrama) {
-    if (to.path === '/asrama' && isLoggedIn && isAsramaStaff) {
-      next('/asrama/dashboard');
+  if (asramaMatch) {
+    const targetType = asramaMatch[1];
+    const loginPath = `/asrama${targetType}`;
+    const isLoginPage = to.path === loginPath || to.path === `${loginPath}/`;
+    const role = user?.role;
+    const isAdmin = role === 'admin' || role === 'super_admin';
+    // Staff asrama hanya boleh mengelola asramanya sendiri (putra / putri)
+    const ownType = isAdmin ? targetType : getStaffAsramaType(user);
+
+    if (isLoggedIn && isAsramaStaff && ownType !== targetType) {
+      next(`/asrama${ownType}/dashboard`);
       return;
     }
-    if (to.path !== '/asrama' && !isLoggedIn) {
-      next('/asrama');
+    if (isLoginPage) {
+      if (isLoggedIn && isAsramaStaff) {
+        next(`${loginPath}/dashboard`);
+        return;
+      }
+      next();
       return;
     }
-    if (to.path !== '/asrama' && !isAsramaStaff) {
-      next('/asrama');
+    if (!isLoggedIn || !isAsramaStaff) {
+      next(loginPath);
       return;
     }
     next();
@@ -275,12 +308,12 @@ router.beforeEach((to, _from, next) => {
         next('/guru/dashboard');
         return;
       }
-      if (isStaffRole) {
+      if (isAdministrasiRole) {
         next('/administrasi/dashboard');
         return;
       }
       if (isAsramaStaff) {
-        next('/asrama/dashboard');
+        next(`/asrama${getStaffAsramaType(user)}/dashboard`);
         return;
       }
       if (isKafetariaStaff) {

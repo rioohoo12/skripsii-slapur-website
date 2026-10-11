@@ -29,7 +29,7 @@ class IntentRouter
         }
 
         // 2. Intent Data Lokal & Presets (Nilai, Absensi, Tagihan, Jadwal, Kamar, Guides, Website)
-        $resolvedData = $this->localDataResolver->resolve($intent, $user, $slots);
+        $resolvedData = $this->localDataResolver->resolve($intent, $user, $slots, $message);
         if ($resolvedData['has_data']) {
             return [
                 'type' => 'local_data',

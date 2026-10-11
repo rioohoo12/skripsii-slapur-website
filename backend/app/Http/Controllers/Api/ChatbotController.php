@@ -50,13 +50,15 @@ class ChatbotController extends Controller
         $request->validate([
             'message' => 'required|string|max:500',
             'session_id' => 'nullable|string|max:64',
+            'context_mode' => 'nullable|string|max:50',
         ]);
 
         $message = trim($request->input('message'));
         $sessionId = $request->input('session_id');
+        $mode = $request->input('context_mode');
         $user = $this->resolveUser($request);
 
-        $result = $this->chatbotService->handleMessage($message, $sessionId, $user);
+        $result = $this->chatbotService->handleMessage($message, $sessionId, $user, $mode);
 
         return response()->json($result);
     }

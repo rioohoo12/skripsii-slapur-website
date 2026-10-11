@@ -12,12 +12,45 @@ use Illuminate\Support\Facades\DB;
 class AsramaStaffController extends Controller
 {
     /**
+     * Tentukan asrama yang dikelola: 'putra' (kamar A-C) atau 'putri' (kamar D-F).
+     * Staff asrama selalu dikunci ke asramanya sendiri; admin boleh memilih via ?asrama_type=.
+     */
+    private function getAsramaType(Request $request): string
+    {
+        $user = $request->user();
+        if ($user && $user->role === 'staff_asrama') {
+            return (str_contains(strtolower($user->email), 'putri') || $user->jenis_kelamin === 'perempuan')
+                ? 'putri'
+                : 'putra';
+        }
+        return strtolower((string) $request->input('asrama_type')) === 'putri' ? 'putri' : 'putra';
+    }
+
+    private function prefixesFor(string $asramaType): array
+    {
+        return $asramaType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+    }
+
+    private function kamarBelongsTo(string $nomorKamar, string $asramaType): bool
+    {
+        return in_array(strtoupper(substr(trim($nomorKamar), 0, 1)), $this->prefixesFor($asramaType), true);
+    }
+
+    /**
      * GET /api/staff/asrama/dashboard
-     * Mengambil statistik untuk dashboard Asrama (US-03)
+     * Mengambil statistik untuk dashboard Asrama (Putra vs Putri)
      */
     public function dashboard(Request $request): JsonResponse
     {
-        $kamar = PendaftaranKamar::all();
+        $asramaType = $this->getAsramaType($request);
+        $prefixes = $asramaType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+
+        $kamar = PendaftaranKamar::where(function($q) use ($prefixes) {
+            foreach ($prefixes as $p) {
+                $q->orWhere('nomor_kamar', 'LIKE', $p . '%');
+            }
+        })->get();
+
         $totalKamar = $kamar->count();
         $totalPenghuni = $kamar->sum('current_occupancy');
         
@@ -25,28 +58,52 @@ class AsramaStaffController extends Controller
             return $k->current_occupancy < $k->kapasitas;
         })->count();
 
-        $permintaanPindah = PendaftaranRoomSelection::whereNotNull('requested_kamar_id')
+        $kamarIds = $kamar->pluck('id')->toArray();
+
+        $permintaanPindah = PendaftaranRoomSelection::whereIn('pendaftaran_kamar_id', $kamarIds)
+            ->whereNotNull('requested_kamar_id')
             ->where('status', 'pending')
             ->count();
         
-        $pendaftarBaru = PendaftaranRoomSelection::whereNull('requested_kamar_id')
+        $pendaftarBaru = PendaftaranRoomSelection::whereIn('pendaftaran_kamar_id', $kamarIds)
+            ->whereNull('requested_kamar_id')
             ->where('status', 'pending')
             ->count();
 
-        // Bisa ditambahkan rekap gedung atau tipe jika tabel PendaftaranKamar menyimpan info gedung, 
-        // tapi saat ini hanya berdasar nomor_kamar. (Misal A = Gedung A)
-        $kapasitasGedung = [
-            [
-                'gedung' => 'Gedung A (Krisan)',
-                'occupancy' => $this->calculateOccupancyPercentage($kamar, 'A'),
-            ],
-            [
-                'gedung' => 'Gedung B (Melati)',
-                'occupancy' => $this->calculateOccupancyPercentage($kamar, 'B'),
-            ],
-        ];
+        if ($asramaType === 'putri') {
+            $kapasitasGedung = [
+                [
+                    'gedung' => 'Gedung D (Krisan)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'D'),
+                ],
+                [
+                    'gedung' => 'Gedung E (Melati)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'E'),
+                ],
+                [
+                    'gedung' => 'Gedung F (Mawar)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'F'),
+                ],
+            ];
+        } else {
+            $kapasitasGedung = [
+                [
+                    'gedung' => 'Gedung A (Anex)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'A'),
+                ],
+                [
+                    'gedung' => 'Gedung B (Cendrawasih)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'B'),
+                ],
+                [
+                    'gedung' => 'Gedung C (Hawk)',
+                    'occupancy' => $this->calculateOccupancyPercentage($kamar, 'C'),
+                ],
+            ];
+        }
 
         return response()->json([
+            'asrama_type' => $asramaType,
             'total_kamar' => $totalKamar,
             'total_penghuni' => $totalPenghuni,
             'kamar_kosong' => $kamarKosong,
@@ -68,12 +125,23 @@ class AsramaStaffController extends Controller
 
     /**
      * GET /api/staff/asrama/kamar
-     * List Master Kamar (US-04, US-05, US-08)
+     * List Master Kamar (Putra / Putri)
      */
     public function listKamar(Request $request): JsonResponse
     {
-        $kamar = PendaftaranKamar::orderBy('nomor_kamar')->get();
-        return response()->json(['data' => $kamar]);
+        $asramaType = $this->getAsramaType($request);
+        $prefixes = $asramaType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+
+        $kamar = PendaftaranKamar::where(function($q) use ($prefixes) {
+            foreach ($prefixes as $p) {
+                $q->orWhere('nomor_kamar', 'LIKE', $p . '%');
+            }
+        })->orderBy('nomor_kamar')->get();
+
+        return response()->json([
+            'data' => $kamar,
+            'asrama_type' => $asramaType,
+        ]);
     }
 
     /**
@@ -88,6 +156,12 @@ class AsramaStaffController extends Controller
             'status_kondisi' => 'nullable|string|max:30',
             'catatan_fasilitas' => 'nullable|string',
         ]);
+
+        $asramaType = $this->getAsramaType($request);
+        if (!$this->kamarBelongsTo($validated['nomor_kamar'], $asramaType)) {
+            $label = $asramaType === 'putri' ? 'Asrama Putri (awalan D, E, F)' : 'Asrama Putra (awalan A, B, C)';
+            return response()->json(['message' => "Nomor kamar harus untuk {$label}."], 422);
+        }
 
         $kamar = PendaftaranKamar::create([
             'nomor_kamar' => strtoupper(trim($validated['nomor_kamar'])),
@@ -118,6 +192,11 @@ class AsramaStaffController extends Controller
             'catatan_fasilitas' => 'nullable|string',
         ]);
 
+        $asramaType = $this->getAsramaType($request);
+        if (!$this->kamarBelongsTo($kamar->nomor_kamar, $asramaType) || !$this->kamarBelongsTo($validated['nomor_kamar'], $asramaType)) {
+            return response()->json(['message' => 'Kamar ini bukan bagian dari asrama yang Anda kelola.'], 403);
+        }
+
         $kamar->update([
             'nomor_kamar' => strtoupper(trim($validated['nomor_kamar'])),
             'kapasitas' => $validated['kapasitas'],
@@ -131,11 +210,15 @@ class AsramaStaffController extends Controller
     /**
      * DELETE /api/staff/asrama/kamar/{id}
      */
-    public function deleteKamar($id): JsonResponse
+    public function deleteKamar(Request $request, $id): JsonResponse
     {
         $kamar = PendaftaranKamar::find($id);
         if (!$kamar) {
             return response()->json(['message' => 'Kamar tidak ditemukan'], 404);
+        }
+
+        if (!$this->kamarBelongsTo($kamar->nomor_kamar, $this->getAsramaType($request))) {
+            return response()->json(['message' => 'Kamar ini bukan bagian dari asrama yang Anda kelola.'], 403);
         }
 
         if ($kamar->current_occupancy > 0) {
@@ -148,32 +231,56 @@ class AsramaStaffController extends Controller
 
     /**
      * GET /api/staff/asrama/persetujuan
-     * List persetujuan pending (pendaftaran baru atau mutasi) (US-06)
+     * List persetujuan pending (pendaftaran baru atau mutasi) (Putra / Putri)
      */
     public function listPersetujuan(Request $request): JsonResponse
     {
-        // Ambil yang statusnya pending
+        $asramaType = $this->getAsramaType($request);
+        $prefixes = $asramaType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+
         $selections = PendaftaranRoomSelection::with(['user', 'kamar', 'requestedKamar'])
             ->where('status', 'pending')
+            ->whereHas('kamar', function($q) use ($prefixes) {
+                $q->where(function($sub) use ($prefixes) {
+                    foreach ($prefixes as $p) {
+                        $sub->orWhere('nomor_kamar', 'LIKE', $p . '%');
+                    }
+                });
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
-        return response()->json(['data' => $selections]);
+        return response()->json([
+            'data' => $selections,
+            'asrama_type' => $asramaType,
+        ]);
     }
 
     /**
      * GET /api/staff/asrama/penghuni
-     * List seluruh penghuni kamar (US-07)
+     * List seluruh penghuni kamar (Putra / Putri)
      */
     public function listPenghuni(Request $request): JsonResponse
     {
-        // Ambil yang statusnya approved
+        $asramaType = $this->getAsramaType($request);
+        $prefixes = $asramaType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+
         $selections = PendaftaranRoomSelection::with(['user.student', 'kamar'])
             ->where('status', 'approved')
+            ->whereHas('kamar', function($q) use ($prefixes) {
+                $q->where(function($sub) use ($prefixes) {
+                    foreach ($prefixes as $p) {
+                        $sub->orWhere('nomor_kamar', 'LIKE', $p . '%');
+                    }
+                });
+            })
             ->orderBy('pendaftaran_kamar_id')
             ->get();
 
-        return response()->json(['data' => $selections]);
+        return response()->json([
+            'data' => $selections,
+            'asrama_type' => $asramaType,
+        ]);
     }
 
     /**
@@ -194,6 +301,13 @@ class AsramaStaffController extends Controller
 
             if ($targetKamar->current_occupancy >= $targetKamar->kapasitas) {
                 return response()->json(['message' => 'Kamar tujuan sudah penuh.'], 422);
+            }
+
+            $asramaType = $this->getAsramaType($request);
+            $currentNomor = optional(PendaftaranKamar::find($selection->pendaftaran_kamar_id))->nomor_kamar ?? '';
+            if (!$this->kamarBelongsTo($targetKamar->nomor_kamar, $asramaType)
+                || ($currentNomor !== '' && !$this->kamarBelongsTo($currentNomor, $asramaType))) {
+                return response()->json(['message' => 'Mutasi hanya bisa dilakukan antar kamar di asrama yang sama.'], 422);
             }
 
             if ($selection->pendaftaran_kamar_id === $targetKamar->id) {

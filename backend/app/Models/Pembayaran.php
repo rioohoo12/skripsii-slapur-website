@@ -9,7 +9,17 @@ class Pembayaran extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['tagihan_id', 'metode', 'midtrans_order_id', 'bukti_transfer_path', 'status', 'diverifikasi_oleh', 'paid_at'];
+    protected $fillable = [
+        'tagihan_id',
+        'nominal_bayar',
+        'metode',
+        'midtrans_order_id',
+        'bukti_transfer_path',
+        'status',
+        'catatan',
+        'diverifikasi_oleh',
+        'paid_at'
+    ];
 
     protected $casts = [
         'paid_at' => 'datetime',

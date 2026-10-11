@@ -1,13 +1,13 @@
 <template>
-  <div class="penghuni-kamar">
+  <div class="penghuni-kamar" :class="isPutri ? 'is-putri' : 'is-putra'">
     <div class="page-header">
-      <h2>Daftar Penghuni & Mutasi Kamar</h2>
-      <p class="text-muted">Lihat semua siswa yang sudah menempati kamar dan lakukan mutasi jika perlu.</p>
+      <h2>Penghuni & Mutasi {{ label }}</h2>
+      <p class="text-muted">Lihat semua santri yang sudah menempati kamar {{ label.toLowerCase() }} dan lakukan mutasi jika perlu.</p>
     </div>
 
     <div class="table-container">
       <div class="table-actions">
-        <input type="text" v-model="searchQuery" placeholder="Cari nama siswa atau kamar..." class="search-input" />
+        <input type="text" v-model="searchQuery" :placeholder="`Cari nama santri atau kamar ${label.toLowerCase()}...`" class="search-input" />
       </div>
       <table class="data-table">
         <thead>
@@ -20,9 +20,9 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="5" class="text-center py-4">Memuat data penghuni...</td></tr>
-          <tr v-else-if="filteredList.length === 0"><td colspan="5" class="text-center py-4 text-muted">Belum ada penghuni / tidak ada hasil pencarian.</td></tr>
-          <tr v-else v-for="item in filteredList" :key="item.id">
+          <tr v-if="loading"><td colspan="5" class="text-center py-4">Memuat data penghuni {{ label.toLowerCase() }}...</td></tr>
+          <tr v-else-if="filteredList.length === 0"><td colspan="5" class="text-center py-4 text-muted">Belum ada penghuni {{ label.toLowerCase() }} / tidak ada hasil pencarian.</td></tr>
+          <tr v-for="item in filteredList" :key="item.id">
             <td><strong>{{ item.user?.name || 'Siswa' }}</strong></td>
             <td>
               <span class="badge badge-primary">
@@ -42,12 +42,12 @@
     <!-- Modal Mutasi -->
     <div v-if="showModal" class="modal-backdrop" @click.self="closeModal">
       <div class="modal-content">
-        <h3>Mutasi Kamar Siswa</h3>
-        <p class="mb-4">Pindahkan siswa <strong>{{ selectedItem?.user?.name }}</strong> dari kamar <strong>{{ selectedItem?.kamar?.nomor_kamar }}</strong> ke kamar baru.</p>
+        <h3>Mutasi Kamar Santri ({{ label }})</h3>
+        <p class="mb-4">Pindahkan siswa <strong>{{ selectedItem?.user?.name }}</strong> dari kamar <strong>{{ selectedItem?.kamar?.nomor_kamar }}</strong> ke kamar baru di {{ label }}.</p>
         
         <form @submit.prevent="submitMutasi">
           <div class="form-group">
-            <label>Pilih Kamar Tujuan</label>
+            <label>Pilih Kamar Tujuan ({{ label }})</label>
             <select v-model="targetKamarId" required>
               <option value="" disabled>-- Pilih Kamar --</option>
               <option v-for="k in kamarTersedia" :key="k.id" :value="k.id" :disabled="k.current_occupancy >= k.kapasitas">
@@ -76,7 +76,10 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
+import { useAsramaType } from '@/composables/useAsramaType';
+
+const { type, isPutri, label, withType } = useAsramaType();
 
 const penghuniList = ref([]);
 const kamarTersedia = ref([]);
@@ -100,6 +103,11 @@ const filteredList = computed(() => {
   });
 });
 
+watch(type, () => {
+  fetchPenghuni();
+  fetchKamarTersedia();
+});
+
 onMounted(() => {
   fetchPenghuni();
   fetchKamarTersedia();
@@ -108,12 +116,12 @@ onMounted(() => {
 async function fetchPenghuni() {
   loading.value = true;
   try {
-    const res = await fetch('/api/staff/asrama/penghuni', {
+    const res = await fetch(withType('/api/staff/asrama/penghuni'), {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
     });
     if (res.ok) {
       const data = await res.json();
-      penghuniList.value = data.data;
+      penghuniList.value = data.data || [];
     }
   } catch (e) {
     console.error(e);
@@ -124,12 +132,12 @@ async function fetchPenghuni() {
 
 async function fetchKamarTersedia() {
   try {
-    const res = await fetch('/api/staff/asrama/kamar', {
+    const res = await fetch(withType('/api/staff/asrama/kamar'), {
       headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
     });
     if (res.ok) {
       const data = await res.json();
-      kamarTersedia.value = data.data;
+      kamarTersedia.value = data.data || [];
     }
   } catch (e) {
     console.error(e);
@@ -139,7 +147,7 @@ async function fetchKamarTersedia() {
 function openMutasiModal(item) {
   selectedItem.value = item;
   targetKamarId.value = '';
-  mutasiNotes.value = `Dimutasi dari kamar ${item.kamar?.nomor_kamar} oleh Staff Asrama.`;
+  mutasiNotes.value = `Dimutasi dari kamar ${item.kamar?.nomor_kamar} oleh Staff ${label.value}.`;
   errorMsg.value = '';
   showModal.value = true;
 }
@@ -189,24 +197,24 @@ async function submitMutasi() {
 .text-muted { color: #64748b; margin: 0; }
 .max-w-xs { max-width: 250px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-.table-container { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; }
+.table-container { background: white; border-radius: 12px; border: 1px solid #e2e8f0; overflow-x: auto; width: 100%; }
 .table-actions { padding: 1rem; border-bottom: 1px solid #e2e8f0; background: #f8fafc; }
 .search-input { width: 100%; max-width: 350px; padding: 0.6rem 1rem; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; }
 
 .data-table { width: 100%; border-collapse: collapse; text-align: left; }
-.data-table th { background: #f8fafc; padding: 1rem; color: #475569; font-weight: 600; border-bottom: 1px solid #e2e8f0; }
+.data-table th { background: #f8fafc; padding: 1rem; color: #475569; font-weight: 600; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
 .data-table td { padding: 1rem; border-bottom: 1px solid #f1f5f9; color: #334155; }
 
-.badge { padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; }
+.badge { padding: 0.35rem 0.6rem; border-radius: 6px; font-size: 0.8rem; font-weight: 700; white-space: nowrap; }
 .badge-primary { background: #e0e7ff; color: #4338ca; }
 
-.btn-sm { border: none; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; }
+.btn-sm { border: none; padding: 0.4rem 0.8rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 0.8rem; white-space: nowrap; }
 .btn-mutasi { background: #f59e0b; color: white; }
 .btn-mutasi:hover { background: #d97706; }
 
 /* Modal */
-.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; }
-.modal-content { background: white; padding: 2rem; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+.modal-content { background: white; padding: 1.5rem; border-radius: 12px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
 .modal-content h3 { margin: 0 0 0.5rem 0; color: #1e293b; }
 .mb-4 { margin-bottom: 1.5rem; color: #475569; font-size: 0.95rem; line-height: 1.4; }
 
@@ -221,4 +229,18 @@ async function submitMutasi() {
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: #e2e8f0; color: #475569; border: none; padding: 0.6rem 1.2rem; border-radius: 8px; font-weight: 600; cursor: pointer; }
 .btn-secondary:hover { background: #cbd5e1; }
+
+@media (max-width: 640px) {
+  .page-header h2 {
+    font-size: 1.25rem;
+  }
+  .search-input {
+    max-width: 100%;
+  }
+  .data-table th, 
+  .data-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

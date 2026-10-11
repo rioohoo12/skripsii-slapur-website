@@ -42,15 +42,18 @@ class PendaftaranController extends Controller
         $profile = PendaftaranProfile::where('user_id', $user->id)->first();
         $payment = PendaftaranPayment::where('user_id', $user->id)->first();
         $roomSelection = PendaftaranRoomSelection::where('user_id', $user->id)->with('kamar')->first();
-        $documents = StudentDocument::where('user_id', $user->id)->get(['jenis', 'status', 'verified_at']);
+        
+        $docs = $student ? \App\Models\DokumenSiswa::where('siswa_id', $student->id)->get() : collect();
+        $documentsCount = $docs->filter(fn($d) => in_array($d->status, ['disetujui', 'terverifikasi', 'verified'], true))->count();
 
         // Evaluasi penyelesaian berurutan Langkah 0 s/d Langkah 5
-        $step0_done = (bool) ($profile && $profile->kelas_yang_didaftar);
-        $step1_done = $step0_done && ($payment && ($payment->status === 'terverifikasi' || $payment->nominal_dibayar >= $payment->nominal_60_percent));
-        $step2_done = $step1_done && ($roomSelection && in_array($roomSelection->status, ['approved', 'disetujui'], true));
+        // Siswa yang sudah terdaftar tidak boleh disuruh daftar ulang
+        $step0_done = (bool) ($profile && $profile->kelas_yang_didaftar) || ($student && $student->status_pendaftaran === 'terdaftar');
+        $step1_done = $step0_done && (($payment && ($payment->status === 'terverifikasi' || $payment->nominal_dibayar >= $payment->nominal_60_percent)) || ($student && $student->has_paid_registration));
+        $step2_done = $step1_done && (($roomSelection && in_array($roomSelection->status, ['approved', 'disetujui'], true)) || ($student && ($student->has_chosen_room || $student->assigned_room_id)));
         $step3_done = $step2_done; // Administrasi
         $step4_done = $step3_done; // Kurikulum
-        $step5_done = $step4_done && (($student && $student->has_uploaded_docs) || $documents->whereIn('status', ['terverifikasi', 'verified'])->count() > 0);
+        $step5_done = $step4_done && (($student && $student->has_uploaded_docs) || $documentsCount > 0 || $docs->isNotEmpty());
 
         $steps = [
             0 => [
@@ -124,11 +127,20 @@ class PendaftaranController extends Controller
                 'kamar_id' => $roomSelection->pendaftaran_kamar_id,
                 'status' => $roomSelection->status,
             ] : null,
-            'documents' => $documents->map(fn ($d) => [
-                'jenis' => $d->jenis,
-                'status' => $d->status,
-                'verified_at' => $d->verified_at?->toIso8601String(),
-            ])->keyBy('jenis'),
+            'documents' => $docs->map(function ($d) use ($student) {
+                $mapIdToJenis = [
+                    1 => 'kk',
+                    2 => 'akte_kelahiran',
+                    3 => 'raport',
+                    4 => 'pas_foto',
+                ];
+                return [
+                    'id' => $d->id,
+                    'jenis' => $mapIdToJenis[$d->jenis_dokumen_id] ?? 'lainnya',
+                    'status' => $d->status === 'disetujui' ? 'terverifikasi' : $d->status,
+                    'verified_at' => $d->diverifikasi_at?->toIso8601String(),
+                ];
+            })->keyBy('jenis'),
         ]);
     }
 
@@ -154,13 +166,22 @@ class PendaftaranController extends Controller
         ]);
     }
 
-    /**
-     * GET /api/pendaftaran/kamar — Daftar kamar (kapasitas, terisi) untuk pilih kamar.
-     */
     public function kamar(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $queryJk = $request->query('jenis_kelamin');
+        $jk = in_array($queryJk, ['perempuan', 'laki-laki']) ? $queryJk : ($user ? $user->jenis_kelamin : 'laki-laki');
+
         if (PendaftaranKamar::count() === 0) {
-            foreach (['A1', 'A2', 'A3', 'B1', 'B2', 'B3'] as $no) {
+            $rooms = [
+                'A1', 'A2', 'A3', // Anex (L)
+                'B1', 'B2', 'B3', // Cendrawasih (L)
+                'C1', 'C2', 'C3', // Hawk (L)
+                'D1', 'D2', 'D3', // Krisan (P)
+                'E1', 'E2', 'E3', // Melati (P)
+                'F1', 'F2', 'F3', // Mawar (P)
+            ];
+            foreach ($rooms as $no) {
                 PendaftaranKamar::create([
                     'nomor_kamar' => $no,
                     'kapasitas' => 4,
@@ -170,6 +191,20 @@ class PendaftaranController extends Controller
         }
 
         $query = PendaftaranKamar::orderBy('nomor_kamar');
+        if ($jk === 'perempuan') {
+            $query->where(function($q) {
+                $q->where('nomor_kamar', 'LIKE', 'D%')
+                  ->orWhere('nomor_kamar', 'LIKE', 'E%')
+                  ->orWhere('nomor_kamar', 'LIKE', 'F%');
+            });
+        } else {
+            $query->where(function($q) {
+                $q->where('nomor_kamar', 'LIKE', 'A%')
+                  ->orWhere('nomor_kamar', 'LIKE', 'B%')
+                  ->orWhere('nomor_kamar', 'LIKE', 'C%');
+            });
+        }
+
         if ($request->query('tersedia') === '1' || $request->query('tersedia') === 'true') {
             $query->whereColumn('current_occupancy', '<', 'kapasitas');
         }
@@ -191,6 +226,23 @@ class PendaftaranController extends Controller
      * POST /api/pendaftaran/kamar — Pilih kamar (untuk dashboard; juga bisa via chatbot).
      * Body: { "kamar_id": 1 } atau { "nomor_kamar": "A1" }
      */
+    /**
+     * Kamar putra berawalan A/B/C, kamar putri berawalan D/E/F.
+     * Mengembalikan pesan error bila kamar tidak sesuai jenis kelamin siswa, atau null bila sesuai.
+     */
+    private function cekKamarSesuaiGender(?string $nomorKamar, ?string $jenisKelamin): ?string
+    {
+        $prefix = strtoupper(substr(trim((string) $nomorKamar), 0, 1));
+        $isPutri = $jenisKelamin === 'perempuan';
+        $allowed = $isPutri ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+        if (in_array($prefix, $allowed, true)) {
+            return null;
+        }
+        return $isPutri
+            ? 'Siswa perempuan hanya dapat memilih kamar di Asrama Putri (Gedung D, E, F).'
+            : 'Siswa laki-laki hanya dapat memilih kamar di Asrama Putra (Gedung A, B, C).';
+    }
+
     public function pilihKamar(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -219,12 +271,19 @@ class PendaftaranController extends Controller
 
         return \Illuminate\Support\Facades\DB::transaction(function () use ($user, $kamarId, $nomorKamar, $student) {
             $nomorStr = strtoupper(trim((string)$nomorKamar));
+            if (!$kamarId && ($err = $this->cekKamarSesuaiGender($nomorStr, $user->jenis_kelamin))) {
+                return response()->json(['message' => $err], 422);
+            }
             $kamar = $kamarId
                 ? PendaftaranKamar::find($kamarId)
                 : PendaftaranKamar::firstOrCreate(['nomor_kamar' => $nomorStr], ['kapasitas' => 4, 'current_occupancy' => 0]);
 
             if (!$kamar) {
                 return response()->json(['message' => 'Kamar tidak ditemukan'], 404);
+            }
+
+            if ($err = $this->cekKamarSesuaiGender($kamar->nomor_kamar, $user->jenis_kelamin)) {
+                return response()->json(['message' => $err], 422);
             }
 
             if ($kamar->current_occupancy >= $kamar->kapasitas) {
@@ -327,18 +386,36 @@ class PendaftaranController extends Controller
             return response()->json(['message' => 'Unauthenticated'], 401);
         }
 
-        $docs = StudentDocument::where('user_id', $user->id)
+        $student = \App\Models\Student::where('user_id', $user->id)->first();
+        if (!$student) {
+            return response()->json(['documents' => []]);
+        }
+
+        $docs = \App\Models\DokumenSiswa::with(['jenisDokumen', 'verifikator'])
+            ->where('siswa_id', $student->id)
             ->orderBy('id', 'desc')
-            ->get(['id', 'jenis', 'file_path', 'status', 'verified_at', 'created_at', 'updated_at']);
+            ->get();
+
+        $mapIdToJenis = [
+            1 => 'kk',
+            2 => 'akte_kelahiran',
+            3 => 'raport',
+            4 => 'pas_foto',
+        ];
 
         return response()->json([
-            'documents' => $docs->map(fn (StudentDocument $d) => [
+            'documents' => $docs->map(fn ($d) => [
                 'id' => $d->id,
-                'jenis' => $d->jenis,
+                'jenis_dokumen_id' => $d->jenis_dokumen_id,
+                'nama_dokumen' => $d->jenisDokumen?->nama ?? ($mapIdToJenis[$d->jenis_dokumen_id] ?? 'Dokumen'),
+                'jenis' => $mapIdToJenis[$d->jenis_dokumen_id] ?? 'lainnya',
+                'file_name' => basename($d->file_path ?? ''),
                 'file_path' => $d->file_path,
                 'file_url' => $d->file_path ? url('storage/' . ltrim($d->file_path, '/')) : null,
-                'status' => $d->status,
-                'verified_at' => $d->verified_at?->toIso8601String(),
+                'status' => $d->status === 'disetujui' ? 'terverifikasi' : $d->status,
+                'catatan' => $d->catatan,
+                'diverifikasi_oleh' => $d->verifikator?->name,
+                'verified_at' => $d->diverifikasi_at?->toIso8601String(),
                 'created_at' => $d->created_at?->toIso8601String(),
                 'updated_at' => $d->updated_at?->toIso8601String(),
             ]),
@@ -370,30 +447,45 @@ class PendaftaranController extends Controller
         $file = $request->file('file');
         $path = $file->store('dokumen_pendaftaran/' . $user->id . '/' . $jenis, 'public');
 
-        $doc = StudentDocument::updateOrCreate(
-            ['user_id' => $user->id, 'jenis' => $jenis],
+        $student = \App\Models\Student::where('user_id', $user->id)->first();
+        if (!$student) {
+            $student = \App\Models\Student::create([
+                'user_id' => $user->id,
+                'full_name' => $user->name,
+                'gender' => $user->jenis_kelamin === 'perempuan' ? 'P' : 'L',
+                'status_pendaftaran' => 'terdaftar',
+            ]);
+        }
+
+        $mapJenisToId = [
+            'kk' => 1,
+            'akte_kelahiran' => 2,
+            'raport' => 3,
+            'pas_foto' => 4,
+        ];
+        $jenisId = $mapJenisToId[$jenis] ?? 5;
+
+        $doc = \App\Models\DokumenSiswa::updateOrCreate(
+            ['siswa_id' => $student->id, 'jenis_dokumen_id' => $jenisId],
             [
                 'file_path' => $path,
-                'status' => 'terverifikasi',
-                'verified_at' => now(),
+                'status' => 'menunggu',
+                'diverifikasi_at' => null,
+                'diverifikasi_oleh' => null,
             ]
         );
 
-        // Tandai siswa sudah mengunggah dokumen & aktifkan langkah selanjutnya
-        $student = \App\Models\Student::where('user_id', $user->id)->first();
-        if ($student) {
-            $student->update(['has_uploaded_docs' => true]);
-        }
+        $student->update(['has_uploaded_docs' => true]);
 
         return response()->json([
-            'message' => 'Dokumen berhasil diunggah dan diverifikasi secara otomatis oleh Virtual Assistant.',
+            'message' => 'Dokumen berhasil diunggah dan sedang menunggu verifikasi dari Staff Administrasi.',
             'document' => [
                 'id' => $doc->id,
-                'jenis' => $doc->jenis,
+                'jenis' => $jenis,
                 'file_path' => $doc->file_path,
                 'file_url' => url('storage/' . ltrim($doc->file_path, '/')),
-                'status' => $doc->status,
-                'verified_at' => $doc->verified_at?->toIso8601String(),
+                'status' => 'menunggu',
+                'verified_at' => null,
                 'updated_at' => $doc->updated_at?->toIso8601String(),
             ],
         ]);
@@ -418,7 +510,6 @@ class PendaftaranController extends Controller
             'is_transfer_student' => 'boolean',
             'previous_school_name' => 'nullable|string|max:255',
             'nama_ayah' => 'required|string|max:255',
-            'nama_ibu' => 'required|string|max:255',
             'pekerjaan_ayah' => 'required|string|max:255',
             'pendidikan_ayah' => 'nullable|string|max:255',
             'penghasilan_ayah' => 'nullable|string|max:255',
@@ -442,6 +533,11 @@ class PendaftaranController extends Controller
             'kewarganegaraan' => 'nullable|string|max:255',
             'no_telp' => 'nullable|string|max:50',
         ]);
+
+        // Sync gender to User table so auth store and rooms API will be consistent
+        if ($user->jenis_kelamin !== $validated['gender']) {
+            $user->update(['jenis_kelamin' => $validated['gender']]);
+        }
 
         $student = \App\Models\Student::updateOrCreate(
             ['user_id' => $user->id],
@@ -648,6 +744,19 @@ class PendaftaranController extends Controller
             return response()->json(['message' => 'Pendaftaran kamar tidak ditemukan.'], 404);
         }
 
+        $user = $request->user();
+        if ($user && $user->role === 'staff_asrama') {
+            $staffType = (str_contains(strtolower($user->email), 'putri') || $user->jenis_kelamin === 'perempuan') ? 'putri' : 'putra';
+            $allowedPrefixes = $staffType === 'putri' ? ['D', 'E', 'F'] : ['A', 'B', 'C'];
+            $kamar = $selection->kamar ?: PendaftaranKamar::find($selection->pendaftaran_kamar_id);
+            if ($kamar) {
+                $prefix = strtoupper(substr(trim($kamar->nomor_kamar), 0, 1));
+                if (!in_array($prefix, $allowedPrefixes, true)) {
+                    return response()->json(['message' => 'Anda tidak memiliki hak akses untuk kamar di asrama ini.'], 403);
+                }
+            }
+        }
+
         $actionInput = $request->input('action');
         $statusInput = $request->input('status');
         
@@ -715,6 +824,244 @@ class PendaftaranController extends Controller
                 'avatar' => $user->avatar,
                 'jenis_kelamin' => $user->jenis_kelamin,
             ]
+        ]);
+    }
+
+    /**
+     * GET /api/siswa/tagihan — Daftar tagihan & status pembayaran siswa
+     */
+    public function getSiswaTagihan(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $student = \App\Models\Student::where('user_id', $user->id)->first();
+        if (!$student) {
+            $student = \App\Models\Student::create([
+                'user_id' => $user->id,
+                'full_name' => $user->name,
+                'gender' => $user->jenis_kelamin === 'perempuan' ? 'P' : 'L',
+                'status_pendaftaran' => 'terdaftar',
+            ]);
+        }
+
+        // Pastikan default tagihan sudah tersedia
+        $pPayment = \App\Models\PendaftaranPayment::where('user_id', $user->id)->first();
+        $isRegPaid = $student->has_paid_registration || ($pPayment && $pPayment->status === 'terverifikasi');
+
+        // 1. Tagihan Pendaftaran
+        $tagihanDaftar = \App\Models\Tagihan::firstOrCreate(
+            ['siswa_id' => $student->id, 'jenis' => 'pendaftaran'],
+            [
+                'nominal' => 5000000,
+                'jatuh_tempo' => \Carbon\Carbon::now()->addDays(14)->toDateString(),
+                'status' => $isRegPaid ? 'lunas' : ($pPayment && $pPayment->status === 'menunggu' ? 'menunggu' : 'belum_bayar'),
+            ]
+        );
+
+        // Jika pendaftaran_payments ada tapi belum ada di pembayarans
+        if ($pPayment && !\App\Models\Pembayaran::where('tagihan_id', $tagihanDaftar->id)->exists()) {
+            \App\Models\Pembayaran::create([
+                'tagihan_id' => $tagihanDaftar->id,
+                'nominal_bayar' => $pPayment->nominal_dibayar ?? 3000000,
+                'metode' => 'TRANSFER_BANK',
+                'bukti_transfer_path' => $pPayment->bukti_path,
+                'status' => $pPayment->status === 'terverifikasi' ? 'terverifikasi' : 'menunggu',
+                'paid_at' => $pPayment->verified_at,
+            ]);
+        }
+
+        // 2. Tagihan SPP
+        \App\Models\Tagihan::firstOrCreate(
+            ['siswa_id' => $student->id, 'jenis' => 'SPP'],
+            [
+                'nominal' => 1500000,
+                'jatuh_tempo' => \Carbon\Carbon::now()->endOfMonth()->toDateString(),
+                'status' => 'belum_bayar',
+            ]
+        );
+
+        // 3. Tagihan Asrama
+        \App\Models\Tagihan::firstOrCreate(
+            ['siswa_id' => $student->id, 'jenis' => 'asrama'],
+            [
+                'nominal' => 2000000,
+                'jatuh_tempo' => \Carbon\Carbon::now()->addDays(30)->toDateString(),
+                'status' => 'belum_bayar',
+            ]
+        );
+
+        $tagihans = \App\Models\Tagihan::with(['pembayarans.verifikator:id,name'])
+            ->where('siswa_id', $student->id)
+            ->orderBy('id', 'asc')
+            ->get();
+
+        $mapJenisJudul = [
+            'pendaftaran' => 'Biaya Pendaftaran Siswa Baru (60%)',
+            'SPP' => 'SPP & Biaya Operasional Pendidikan (Bulan Ini)',
+            'asrama' => 'Biaya Asrama & Fasilitas Hunian (Semester 1)',
+            'dining' => 'Biaya Makan & Kafetaria',
+        ];
+
+        $totalTagihan = 0;
+        $totalDibayar = 0;
+        $hasUnpaid = false;
+        $hasWaiting = false;
+
+        $items = $tagihans->map(function ($t) use ($mapJenisJudul, &$totalTagihan, &$totalDibayar, &$hasUnpaid, &$hasWaiting) {
+            $totalTagihan += (float) $t->nominal;
+
+            $lastPembayaran = $t->pembayarans->sortByDesc('id')->first();
+            $statusTagihan = $t->status;
+
+            if ($lastPembayaran) {
+                if ($lastPembayaran->status === 'terverifikasi') {
+                    $statusTagihan = 'lunas';
+                    $totalDibayar += (float) ($lastPembayaran->nominal_bayar ?: $t->nominal);
+                } elseif ($lastPembayaran->status === 'menunggu') {
+                    $statusTagihan = 'menunggu';
+                    $hasWaiting = true;
+                } elseif ($lastPembayaran->status === 'ditolak') {
+                    $statusTagihan = 'ditolak';
+                    $hasUnpaid = true;
+                }
+            } else {
+                if ($statusTagihan === 'lunas') {
+                    $totalDibayar += (float) $t->nominal;
+                } else {
+                    $hasUnpaid = true;
+                }
+            }
+
+            $buktiUrl = null;
+            if ($lastPembayaran && $lastPembayaran->bukti_transfer_path) {
+                $path = ltrim($lastPembayaran->bukti_transfer_path, '/');
+                $buktiUrl = '/storage/' . $path;
+            }
+
+            return [
+                'id' => $t->id,
+                'jenis' => $t->jenis,
+                'judul' => $mapJenisJudul[$t->jenis] ?? ('Tagihan ' . ucfirst($t->jenis)),
+                'nominal' => (float) $t->nominal,
+                'nominal_formatted' => 'Rp ' . number_format($t->nominal, 0, ',', '.'),
+                'jatuh_tempo' => $t->jatuh_tempo,
+                'status' => $statusTagihan,
+                'status_label' => match ($statusTagihan) {
+                    'lunas' => 'Lunas',
+                    'menunggu' => 'Menunggu Verifikasi',
+                    'ditolak' => 'Ditolak / Belum Lunas',
+                    default => 'Belum Lunas',
+                },
+                'pembayaran_terakhir' => $lastPembayaran ? [
+                    'id' => $lastPembayaran->id,
+                    'status' => $lastPembayaran->status,
+                    'nominal_bayar' => (float) ($lastPembayaran->nominal_bayar ?: $t->nominal),
+                    'metode' => $lastPembayaran->metode,
+                    'bukti_url' => $buktiUrl,
+                    'catatan' => $lastPembayaran->catatan,
+                    'verifikator' => $lastPembayaran->verifikator?->name,
+                    'paid_at' => $lastPembayaran->paid_at?->toIso8601String(),
+                    'created_at' => $lastPembayaran->created_at?->toIso8601String(),
+                ] : null,
+            ];
+        });
+
+        $sisaTagihan = max(0, $totalTagihan - $totalDibayar);
+
+        // Status keseluruhan
+        $statusOverall = 'belum_bayar';
+        $keteranganOverall = 'Terdapat tagihan yang belum lunas. Silakan lakukan pembayaran dan unggah bukti transfer.';
+        if ($sisaTagihan <= 0 && !$hasWaiting && !$hasUnpaid) {
+            $statusOverall = 'lunas';
+            $keteranganOverall = 'Semua kewajiban pembayaran telah LUNAS dan terverifikasi oleh Staff Administrasi.';
+        } elseif ($hasWaiting) {
+            $statusOverall = 'menunggu';
+            $keteranganOverall = 'Bukti pembayaran Anda telah dikirim dan sedang dalam antrean verifikasi oleh Staff Administrasi.';
+        }
+
+        return response()->json([
+            'student' => [
+                'id' => $student->id,
+                'full_name' => $student->full_name,
+                'nomor_pendaftaran' => $student->nomor_pendaftaran,
+                'has_paid_registration' => (bool) $student->has_paid_registration,
+            ],
+            'summary' => [
+                'total_tagihan' => $totalTagihan,
+                'total_dibayar' => $totalDibayar,
+                'sisa_tagihan' => $sisaTagihan,
+                'total_tagihan_formatted' => 'Rp ' . number_format($totalTagihan, 0, ',', '.'),
+                'total_dibayar_formatted' => 'Rp ' . number_format($totalDibayar, 0, ',', '.'),
+                'sisa_tagihan_formatted' => 'Rp ' . number_format($sisaTagihan, 0, ',', '.'),
+                'status_keseluruhan' => $statusOverall,
+                'keterangan' => $keteranganOverall,
+            ],
+            'tagihans' => $items,
+        ]);
+    }
+
+    /**
+     * POST /api/siswa/tagihan/{id}/bayar — Upload bukti transfer pembayaran tagihan
+     */
+    public function uploadBuktiPembayaranTagihan(Request $request, $id): JsonResponse
+    {
+        $user = $request->user();
+        if (!$user) {
+            return response()->json(['message' => 'Unauthenticated'], 401);
+        }
+
+        $student = \App\Models\Student::where('user_id', $user->id)->firstOrFail();
+        $tagihan = \App\Models\Tagihan::where('id', $id)->where('siswa_id', $student->id)->firstOrFail();
+
+        $request->validate([
+            'file' => 'required|file|mimes:jpeg,jpg,png,webp,pdf',
+            'metode' => 'nullable|string',
+            'nominal_bayar' => 'nullable|numeric',
+        ], [
+            'file.required' => 'Pilih file bukti transfer pembayaran.',
+            'file.mimes' => 'Format file bukti harus berupa JPG, PNG, WebP, atau PDF.',
+        ]);
+
+        $file = $request->file('file');
+        $path = $file->store('bukti_transfer/' . $user->id, 'public');
+
+        $nominal = $request->input('nominal_bayar') ?: $tagihan->nominal;
+        $metode = $request->input('metode') ?: 'TRANSFER_BANK';
+
+        $pembayaran = \App\Models\Pembayaran::create([
+            'tagihan_id' => $tagihan->id,
+            'nominal_bayar' => $nominal,
+            'metode' => $metode,
+            'bukti_transfer_path' => $path,
+            'status' => 'menunggu',
+            'catatan' => null,
+            'diverifikasi_oleh' => null,
+            'paid_at' => null,
+        ]);
+
+        $tagihan->update(['status' => 'menunggu']);
+
+        // Jika tagihan pendaftaran, sync ke pendaftaran_payments
+        if ($tagihan->jenis === 'pendaftaran') {
+            \App\Models\PendaftaranPayment::updateOrCreate(
+                ['user_id' => $user->id],
+                [
+                    'total_tagihan' => $tagihan->nominal,
+                    'nominal_dibayar' => $nominal,
+                    'status' => 'menunggu',
+                    'bukti_path' => $path,
+                    'verified_at' => null,
+                ]
+            );
+        }
+
+        return response()->json([
+            'message' => 'Bukti pembayaran berhasil diunggah dan dikirim ke Staff Administrasi untuk diverifikasi.',
+            'pembayaran' => $pembayaran,
+            'tagihan' => $tagihan,
         ]);
     }
 }

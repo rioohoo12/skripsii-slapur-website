@@ -386,4 +386,27 @@ function playSound(type) {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 1rem 0.85rem;
+  }
+  .card-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  .meal-selector {
+    width: 100%;
+  }
+  .large-input, .large-btn {
+    width: 100%;
+  }
+  .result-box {
+    padding: 1.25rem 0.75rem;
+  }
+  .student-info {
+    padding: 1rem;
+  }
+}
 </style>

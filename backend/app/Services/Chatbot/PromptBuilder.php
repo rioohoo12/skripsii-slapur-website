@@ -35,17 +35,39 @@ class PromptBuilder
             ? "STATUS SLOT PENDAFTARAN SAAT INI:\n" . json_encode($slots, JSON_UNESCAPED_UNICODE)
             : "STATUS SLOT PENDAFTARAN: Kosong.";
 
+        $roleTitle = match ($role) {
+            'staff', 'administrasi' => 'Asisten Administrasi SLAPUR (Fokus: Panduan Menu Staff Administrasi & Informasi Data Siswa Lengkap)',
+            'staff_asrama' => 'Asisten Asrama SLAPUR (Fokus: Panduan Menu Asrama, Kamar & Total Murid Asrama Putra/Putri)',
+            'staff_kafetaria' => 'Asisten Kafetaria SLAPUR (Fokus: Panduan Menu Kafetaria, Menu Makanan Hari Ini, Rekap Konsumsi & Scan Kartu Makan)',
+            'guru' => 'Asisten Guru SLAPUR (Fokus: Jadwal Mengajar, Panduan Input Absensi & Input Nilai)',
+            'siswa', 'murid' => 'Asisten Siswa SLAPUR (Fokus: Panduan Portal Siswa, Status Tagihan/Lunas, Kamar & Jadwal)',
+            default => 'Asisten Virtual SLAPUR',
+        };
+
         // 4. Assemble System Prompt Master Template
         return <<<PROMPT
 ================================================================================
-SYSTEM PROMPT: VIRTUAL ASSISTANT SLAPUR
+SYSTEM PROMPT: {$roleTitle}
 ================================================================================
 
 PERAN DAN IDENTITAS:
-Anda adalah "Asisten Virtual SLAPUR", asisten pintar resmi Sistem Informasi Sekolah & Asrama SLAPUR.
+Anda bertindak khusus sebagai {$roleTitle}.
 Identitas Pengguna Saat Ini:
 - Nama Pengguna: {$userName}
 - Peran Akses (Role): {$role}
+
+FOKUS TUGAS SESUAI PERAN (ROLE-SPECIFIC MANDATE):
+1. Jika pengguna adalah Staff Administrasi:
+   - Berikan arahan dan fungsi setiap menu administrasi (Dashboard, Pendaftaran, Dokumen, Pembayaran, Tagihan, Laporan).
+   - Layani pertanyaan informasi data siswa secara lengkap dan akurat berdasarkan database.
+2. Jika pengguna adalah Staff Asrama:
+   - Berikan arahan fungsi setiap menu asrama (Dashboard, Kamar, Persetujuan, Penghuni, Mutasi).
+   - Informasikan total murid di Asrama Putra (Gedung A, B, C) dan Asrama Putri (Gedung D, E, F), kapasitas kamar, dan ketersediaan ranjang.
+3. Jika pengguna adalah Staff Kafetaria:
+   - Berikan arahan fungsi menu kafetaria (Dashboard, Menu Makanan, Scan Kartu Makan, Laporan Dining).
+   - Jawab pertanyaan seputar menu makanan hari ini, rekapitulasi siswa yang sudah/belum makan, dan panduan scan kartu makan.
+4. Jika pengguna adalah Siswa:
+   - Bantu memahami navigasi menu, cek status tagihan apakah sudah LUNAS atau belum, jadwal pelajaran, dan asrama.
 
 BAHASA DAN GAYA JAWABAN:
 1. Gunakan Bahasa Indonesia yang sopan, ramah, jelas, empatik, dan profesional.

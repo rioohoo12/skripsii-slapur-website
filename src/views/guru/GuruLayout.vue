@@ -1,9 +1,12 @@
 <template>
   <div class="guru-layout">
-    <GuruSidebar />
+    <GuruSidebar v-model:mobileOpen="mobileSidebarOpen" />
     <main class="guru-main">
       <header class="guru-topbar">
         <div class="topbar-left">
+          <button class="hamburger-btn" @click="mobileSidebarOpen = true" aria-label="Buka Menu Guru">
+            <span class="hamburger-icon">☰</span>
+          </button>
           <img src="/slapur-logo.png" alt="SLAPUR" class="topbar-logo" />
           <div class="topbar-titles">
             <h1 class="page-title">{{ pageTitle }}</h1>
@@ -50,6 +53,7 @@ const route = useRoute();
 const router = useRouter();
 const authStore = useAuthStore();
 const profileOpen = ref(false);
+const mobileSidebarOpen = ref(false);
 
 const user = computed(() => {
   try {
@@ -234,14 +238,55 @@ async function handleLogout() {
   opacity: 0;
   transform: translateY(-6px);
 }
+.hamburger-btn {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  color: #1e293b;
+  font-size: 1.25rem;
+  transition: all 0.2s;
+}
+
+.hamburger-btn:hover {
+  background: #e2e8f0;
+}
+
 .guru-content {
   flex: 1;
   padding: 1.5rem;
   overflow: auto;
 }
-@media (max-width: 900px) {
-  .guru-layout {
-    flex-direction: column;
+
+@media (max-width: 1024px) {
+  .hamburger-btn {
+    display: flex;
+  }
+  .guru-topbar {
+    padding: 0.75rem 1rem;
+  }
+  .guru-content {
+    padding: 1.25rem 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .page-desc {
+    display: none;
+  }
+  .profile-name {
+    display: none;
+  }
+  .guru-content {
+    padding: 0.85rem 0.75rem;
+  }
+  .page-title {
+    font-size: 1.05rem;
   }
 }
 </style>

@@ -840,4 +840,16 @@ onMounted(async () => {
     flex-direction: column;
   }
 }
+
+@media (max-width: 640px) {
+  .welcome-title {
+    font-size: 1.35rem;
+  }
+  .card-body, .card-header {
+    padding: 1rem;
+  }
+  .banner-illustration {
+    display: none;
+  }
+}
 </style>

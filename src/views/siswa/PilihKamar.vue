@@ -101,9 +101,11 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue';
 import { pendaftaranApi } from '@/api/pendaftaran.js';
+import { useAuthStore } from '@/stores/auth';
 
-const props = defineProps({ jenisKelamin: { type: String, default: 'laki-laki' } });
-const themeClass = computed(() => 'theme-' + props.jenisKelamin);
+const authStore = useAuthStore();
+const jenisKelamin = computed(() => authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki');
+const themeClass = computed(() => 'theme-' + jenisKelamin.value);
 
 const daftarKamar = ref([]);
 const selectedKamar = ref(null);
@@ -149,10 +151,10 @@ const asramaGroups = computed(() => {
        if (!groups[prefix]) {
            let nama = 'Asrama ' + prefix;
            let icon = '🏢';
-           if (props.jenisKelamin === 'perempuan') {
-               if (prefix === 'A') { nama = 'Asrama Krisan'; icon = '🌸'; }
-               else if (prefix === 'B') { nama = 'Asrama Melati'; icon = '🌼'; }
-               else if (prefix === 'C') { nama = 'Asrama Mawar'; icon = '🌹'; }
+           if (jenisKelamin.value === 'perempuan') {
+               if (prefix === 'D') { nama = 'Asrama Krisan'; icon = '🌸'; }
+               else if (prefix === 'E') { nama = 'Asrama Melati'; icon = '🌼'; }
+               else if (prefix === 'F') { nama = 'Asrama Mawar'; icon = '🌹'; }
            } else {
                if (prefix === 'A') { nama = 'Asrama Anex'; icon = '🏢'; }
                else if (prefix === 'B') { nama = 'Asrama Cendrawasih'; icon = '🐦'; }
@@ -628,5 +630,38 @@ async function confirmPilihKamar() {
 .slide-up-leave-to {
   transform: translateY(100%);
   opacity: 0;
+}
+
+@media (max-width: 640px) {
+  .asrama-card {
+    padding: 1.25rem 1rem;
+  }
+  .asrama-card-head {
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+  }
+  .asrama-icon-wrap {
+    width: 46px;
+    height: 46px;
+    font-size: 1.4rem;
+  }
+  .kamar-grid {
+    grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+    gap: 0.5rem;
+  }
+  .selected-bar {
+    padding: 0.75rem 1rem;
+    gap: 0.5rem;
+  }
+  .selected-label {
+    display: none;
+  }
+  .selected-value {
+    font-size: 0.95rem;
+  }
+  .selected-action-btn {
+    padding: 0.4rem 0.85rem;
+    font-size: 0.85rem;
+  }
 }
 </style>

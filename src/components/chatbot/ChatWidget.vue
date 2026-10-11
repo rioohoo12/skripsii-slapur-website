@@ -1,19 +1,20 @@
 <template>
   <div 
     class="slapur-widget-container" 
-    style="position: fixed; bottom: 6rem; right: 1.25rem; z-index: 9999;"
+    :class="{ 'is-open': store.isOpen }"
   >
-    <!-- Floating Trigger Button (Bottom-Right Footer Corner) -->
+    <!-- Floating Trigger Button (Bottom-Right Corner) -->
     <button 
       v-if="!store.isOpen" 
       @click="store.toggleChat()"
       class="trigger-floating-btn"
-      aria-label="Buka Asisten SLAPUR"
+      :class="roleInfo.theme"
+      :aria-label="roleInfo.title"
     >
-      <div class="trigger-avatar">🤖</div>
+      <div class="trigger-avatar">{{ roleInfo.avatar }}</div>
       <div class="trigger-info">
-        <span class="trigger-title">Asisten SLAPUR</span>
-        <span class="trigger-sub">● Berinteraksi Langsung</span>
+        <span class="trigger-title">{{ roleInfo.title }}</span>
+        <span class="trigger-sub">{{ roleInfo.subtitle }}</span>
       </div>
     </button>
 
@@ -23,12 +24,12 @@
       class="chat-modal-window"
     >
       <!-- Chat Header -->
-      <div class="chat-header">
+      <div class="chat-header" :class="roleInfo.theme">
         <div class="bot-info">
-          <div class="bot-avatar">🤖</div>
+          <div class="bot-avatar">{{ roleInfo.avatar }}</div>
           <div>
-            <h3>Asisten SLAPUR</h3>
-            <span class="online-status">● Berinteraksi Langsung</span>
+            <h3>{{ roleInfo.title }}</h3>
+            <span class="online-status">{{ roleInfo.subtitle }}</span>
           </div>
         </div>
 
@@ -97,7 +98,8 @@
 </template>
 
 <script setup>
-import { ref, onMounted, watch, nextTick } from 'vue';
+import { ref, computed, onMounted, watch, nextTick } from 'vue';
+import { useRoute } from 'vue-router';
 import { useChatbotStore } from '@/stores/chatbot';
 import { useAuthStore } from '@/stores/auth';
 import ChatMessage from './ChatMessage.vue';
@@ -107,9 +109,87 @@ import ChatInput from './ChatInput.vue';
 
 const store = useChatbotStore();
 const authStore = useAuthStore();
+const route = useRoute();
 
 const messagesContainer = ref(null);
 const chatInputRef = ref(null);
+
+const roleInfo = computed(() => {
+  const role = (store.userRole || 'umum').toLowerCase();
+  switch (role) {
+    case 'staff_administrasi':
+    case 'administrasi':
+    case 'staff':
+      return {
+        title: 'Asisten Administrasi',
+        subtitle: '● Layanan Staf & Info Siswa',
+        avatar: '👨‍💼',
+        theme: 'theme-staff',
+      };
+    case 'staff_asrama_putra':
+    case 'asrama_putra':
+      return {
+        title: 'Asisten Asrama Putra',
+        subtitle: '● Gedung A-C & Total Murid',
+        avatar: '🏢',
+        theme: 'theme-asrama-putra',
+      };
+    case 'staff_asrama_putri':
+    case 'asrama_putri':
+      return {
+        title: 'Asisten Asrama Putri',
+        subtitle: '● Gedung D-F & Total Murid',
+        avatar: '🌸',
+        theme: 'theme-asrama-putri',
+      };
+    case 'staff_asrama':
+      return {
+        title: 'Asisten Asrama',
+        subtitle: '● Layanan Kamar & Santri',
+        avatar: '🏰',
+        theme: 'theme-asrama',
+      };
+    case 'staff_kafetaria':
+    case 'kafetaria':
+      return {
+        title: 'Asisten Kafetaria',
+        subtitle: '● Menu Makanan & Dining',
+        avatar: '🍲',
+        theme: 'theme-kafetaria',
+      };
+    case 'guru':
+    case 'teacher':
+      return {
+        title: 'Asisten Guru',
+        subtitle: '● Jadwal & Nilai Kelas',
+        avatar: '👨‍🏫',
+        theme: 'theme-guru',
+      };
+    case 'murid':
+    case 'student':
+    case 'siswa':
+      return {
+        title: 'Asisten Siswa',
+        subtitle: '● Panduan & Tagihan Siswa',
+        avatar: '🎓',
+        theme: 'theme-siswa',
+      };
+    case 'admin':
+      return {
+        title: 'Asisten Admin',
+        subtitle: '● Kelola Sistem SLAPUR',
+        avatar: '⚡',
+        theme: 'theme-admin',
+      };
+    default:
+      return {
+        title: 'Asisten SLAPUR',
+        subtitle: '● Berinteraksi Langsung',
+        avatar: '🤖',
+        theme: 'theme-default',
+      };
+  }
+});
 
 async function scrollToBottom() {
   await nextTick();
@@ -119,20 +199,35 @@ async function scrollToBottom() {
 }
 
 function detectRole() {
-  if (authStore?.user?.role) {
-    store.setRole(authStore.user.role);
-  } else if (window.location.pathname.includes('/guru')) {
+  const path = window.location.pathname.toLowerCase();
+  const user = authStore?.user;
+
+  if (path.includes('/asramaputra') || (user?.role === 'staff_asrama' && user?.jenis_kelamin === 'laki-laki') || (user?.role === 'staff_asrama' && user?.email?.includes('putra'))) {
+    store.setRole('staff_asrama_putra');
+  } else if (path.includes('/asramaputri') || (user?.role === 'staff_asrama' && user?.jenis_kelamin === 'perempuan') || (user?.role === 'staff_asrama' && user?.email?.includes('putri'))) {
+    store.setRole('staff_asrama_putri');
+  } else if (user?.role === 'staff_asrama') {
+    store.setRole('staff_asrama');
+  } else if (path.includes('/kafetaria') || user?.role === 'staff_kafetaria' || user?.role === 'kafetaria') {
+    store.setRole('staff_kafetaria');
+  } else if (path.includes('/administrasi') || user?.role === 'staff') {
+    store.setRole('staff_administrasi');
+  } else if (path.includes('/guru') || user?.role === 'guru') {
     store.setRole('guru');
-  } else if (window.location.pathname.includes('/staff') || window.location.pathname.includes('/administrasi')) {
-    store.setRole('staff');
-  } else if (window.location.pathname.includes('/admin')) {
+  } else if (path.includes('/siswa') || user?.role === 'siswa' || user?.role === 'student') {
+    store.setRole('siswa');
+  } else if (path.includes('/admin') || user?.role === 'admin' || user?.role === 'super_admin') {
     store.setRole('admin');
-  } else if (window.location.pathname.includes('/siswa')) {
-    store.setRole('murid');
+  } else if (user?.role) {
+    store.setRole(user.role);
   } else {
     store.setRole('umum');
   }
 }
+
+watch(() => [route?.path, authStore?.user], () => {
+  detectRole();
+});
 
 async function handleSend(text) {
   await store.sendMessage(text);
@@ -174,6 +269,13 @@ onMounted(() => {
 .slapur-widget-container {
   font-family: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
   user-select: none;
+}
+
+.slapur-widget-container {
+  position: fixed;
+  bottom: 2rem;
+  right: 1.5rem;
+  z-index: 9999;
 }
 
 /* Floating Trigger Button */
@@ -380,5 +482,68 @@ onMounted(() => {
 
 .opt-btn:hover {
   background: #dcfce7;
+}
+
+/* Role Theme Specific Colors */
+.trigger-floating-btn.theme-staff,
+.chat-header.theme-staff {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+}
+.trigger-floating-btn.theme-asrama-putra,
+.chat-header.theme-asrama-putra {
+  background: linear-gradient(135deg, #065f46, #059669);
+}
+.trigger-floating-btn.theme-asrama-putri,
+.chat-header.theme-asrama-putri {
+  background: linear-gradient(135deg, #9d174d, #db2777);
+}
+.trigger-floating-btn.theme-kafetaria,
+.chat-header.theme-kafetaria {
+  background: linear-gradient(135deg, #c2410c, #ea580c);
+}
+.trigger-floating-btn.theme-guru,
+.chat-header.theme-guru {
+  background: linear-gradient(135deg, #4338ca, #6366f1);
+}
+.trigger-floating-btn.theme-siswa,
+.chat-header.theme-siswa {
+  background: linear-gradient(135deg, #0d6e59, #10b981);
+}
+.trigger-floating-btn.theme-admin,
+.chat-header.theme-admin {
+  background: linear-gradient(135deg, #0f172a, #334155);
+}
+
+@media (max-width: 640px) {
+  .slapur-widget-container {
+    bottom: 1.25rem;
+    right: 1rem;
+  }
+
+  .slapur-widget-container.is-open {
+    inset: 0;
+    padding: 0.5rem;
+    background: rgba(15, 23, 42, 0.45);
+    backdrop-filter: blur(3px);
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+  }
+
+  .chat-modal-window {
+    width: 100%;
+    max-width: 100%;
+    height: 88vh;
+    border-radius: 20px 20px 12px 12px;
+  }
+
+  .trigger-floating-btn {
+    padding: 0.65rem 1rem;
+    gap: 0.6rem;
+  }
+
+  .trigger-sub {
+    display: none;
+  }
 }
 </style>

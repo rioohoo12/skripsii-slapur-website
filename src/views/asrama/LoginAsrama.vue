@@ -1,9 +1,9 @@
 <template>
-  <div class="login-page login-asrama">
+  <div class="login-page login-asrama" :class="isPutri ? 'is-putri' : 'is-putra'">
     <div class="login-card">
       <img src="/slapur-logo.png" alt="SLAPUR" class="login-logo" />
-      <h1 class="login-title">Login Asrama</h1>
-      <p class="login-subtitle">SLAPUR System — masuk dengan akun staff asrama</p>
+      <h1 class="login-title">Login {{ label }}</h1>
+      <p class="login-subtitle">SLAPUR System — masuk dengan akun staff {{ label.toLowerCase() }}</p>
 
       <form class="login-form" @submit.prevent="handleLogin">
         <div class="form-group">
@@ -43,7 +43,9 @@
       <p class="login-footer">
         <router-link to="/siswa" class="link">Login Siswa</router-link>
         <span class="sep"> · </span>
-        <router-link to="/administrasi" class="link">Login Staff</router-link>
+        <router-link :to="isPutri ? '/asramaputra' : '/asramaputri'" class="link">
+          Login {{ isPutri ? 'Asrama Putra' : 'Asrama Putri' }}
+        </router-link>
       </p>
     </div>
   </div>
@@ -54,9 +56,11 @@ import { reactive, ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { authApi } from '@/api/auth';
 import { useAuthStore } from '@/stores/auth';
+import { useAsramaType, getStaffAsramaType } from '@/composables/useAsramaType';
 
 const router = useRouter();
 const authStore = useAuthStore();
+const { type, isPutri, basePath, label } = useAsramaType();
 const form = reactive({ email: '', password: '' });
 const loading = ref(false);
 const loadingLong = ref(false);
@@ -80,7 +84,8 @@ onMounted(() => {
     if (token && user) {
       const u = JSON.parse(user);
       if (u.role && ['staff_asrama', 'admin', 'super_admin'].includes(u.role)) {
-        router.replace('/asrama/dashboard');
+        const own = ['admin', 'super_admin'].includes(u.role) ? type.value : getStaffAsramaType(u);
+        router.replace(`/asrama${own}/dashboard`);
       }
     }
   } catch (_) {}
@@ -95,9 +100,16 @@ async function handleLogin() {
     if (!['staff_asrama', 'admin', 'super_admin'].includes(res.user.role)) {
        throw new Error('Anda tidak memiliki akses sebagai Staff Asrama.');
     }
+
+    const isAdmin = ['admin', 'super_admin'].includes(res.user.role);
+    const ownType = isAdmin ? type.value : getStaffAsramaType(res.user);
+    if (ownType !== type.value) {
+      const ownLabel = ownType === 'putri' ? 'Asrama Putri' : 'Asrama Putra';
+      throw new Error(`Akun ini adalah akun staff ${ownLabel}. Silakan login melalui halaman /asrama${ownType}.`);
+    }
     
-    authStore.setAuth(res.token, res.user);
-    router.push('/asrama/dashboard');
+    authStore.setAuth(res.token, { ...res.user, asrama_type: ownType });
+    router.push(`${basePath.value}/dashboard`);
   } catch (e) {
     const msg = e?.message || '';
     if (e?.errors?.email) {
@@ -112,15 +124,18 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.login-asrama .login-title { color: #8b5cf6; }
-.login-asrama .login-btn.staff {
-  background: #8b5cf6;
-}
-.login-asrama .login-btn.staff:hover:not(:disabled) {
-  background: #7c3aed;
-}
-.login-asrama .login-footer .link { color: #8b5cf6; }
-.login-asrama .form-group input:focus { border-color: #7c3aed; box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1); }
+.login-asrama .login-title { color: #2563eb; }
+.login-asrama .login-btn.staff { background: #2563eb; }
+.login-asrama .login-btn.staff:hover:not(:disabled) { background: #1d4ed8; }
+.login-asrama .login-footer .link { color: #2563eb; }
+.login-asrama .form-group input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12); }
+
+.login-asrama.is-putri { background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 50%, #fbcfe8 100%); }
+.login-asrama.is-putri .login-title { color: #db2777; }
+.login-asrama.is-putri .login-btn.staff { background: #db2777; }
+.login-asrama.is-putri .login-btn.staff:hover:not(:disabled) { background: #be185d; }
+.login-asrama.is-putri .login-footer .link { color: #db2777; }
+.login-asrama.is-putri .form-group input:focus { border-color: #db2777; box-shadow: 0 0 0 3px rgba(219, 39, 119, 0.12); }
 </style>
 
 <style scoped>
@@ -129,7 +144,7 @@ async function handleLogin() {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f5f3ff 0%, #ede9fe 50%, #ddd6fe 100%);
+  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 50%, #bfdbfe 100%);
   padding: 1rem;
 }
 .login-card {
@@ -180,4 +195,16 @@ async function handleLogin() {
 .login-footer { margin-top: 1.5rem; font-size: 0.9rem; color: #64748b; }
 .login-footer .link { font-weight: 600; text-decoration: none; }
 .login-footer .link:hover { text-decoration: underline; }
+
+@media (max-width: 640px) {
+  .login-card {
+    padding: 1.75rem 1.25rem;
+    border-radius: 16px;
+  }
+  .login-logo {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+  }
+}
 </style>

@@ -104,6 +104,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('tugas/{id}/submit', [\App\Http\Controllers\Api\AssignmentController::class, 'submitSiswa']);
         Route::get('scores', [\App\Http\Controllers\Api\StudentScoreController::class, 'indexSiswa']);
         Route::get('materials', [\App\Http\Controllers\Api\MaterialController::class, 'getSiswaMaterials']);
+        Route::get('tagihan', [\App\Http\Controllers\Api\PendaftaranController::class, 'getSiswaTagihan']);
+        Route::post('tagihan/{id}/bayar', [\App\Http\Controllers\Api\PendaftaranController::class, 'uploadBuktiPembayaranTagihan']);
     });
 
     // --- Staff Asrama Routes (AsramaStaffController) ---
@@ -129,7 +131,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // --- Administrasi (Staff) Routes ---
     Route::post('v1/auth/login', [\App\Http\Controllers\Api\AdministrasiController::class, 'login']);
-    Route::middleware(['auth:sanctum', 'role:staff'])->prefix('v1/staff')->group(function () {
+    Route::middleware(['auth:sanctum', 'role:staff,admin,super_admin'])->prefix('v1/staff')->group(function () {
         Route::post('auth/logout', [\App\Http\Controllers\Api\AdministrasiController::class, 'logout']);
         Route::get('dashboard', [\App\Http\Controllers\Api\AdministrasiController::class, 'dashboard']);
         
@@ -139,11 +141,11 @@ Route::middleware('auth:sanctum')->group(function () {
         
         Route::get('dokumen', [\App\Http\Controllers\Api\AdministrasiController::class, 'getDokumen']);
         Route::get('dokumen/{id}', [\App\Http\Controllers\Api\AdministrasiController::class, 'getDokumenDetail']);
-        Route::patch('dokumen/{id}/verifikasi', [\App\Http\Controllers\Api\AdministrasiController::class, 'verifikasiDokumen']);
+        Route::match(['post', 'patch'], 'dokumen/{id}/verifikasi', [\App\Http\Controllers\Api\AdministrasiController::class, 'verifikasiDokumen']);
         
         Route::get('pembayaran', [\App\Http\Controllers\Api\AdministrasiController::class, 'getPembayaran']);
         Route::get('pembayaran/{id}', [\App\Http\Controllers\Api\AdministrasiController::class, 'getPembayaranDetail']);
-        Route::patch('pembayaran/{id}/verifikasi', [\App\Http\Controllers\Api\AdministrasiController::class, 'verifikasiPembayaran']);
+        Route::match(['post', 'patch'], 'pembayaran/{id}/verifikasi', [\App\Http\Controllers\Api\AdministrasiController::class, 'verifikasiPembayaran']);
         
         Route::get('tagihan', [\App\Http\Controllers\Api\AdministrasiController::class, 'getTagihan']);
         Route::post('tagihan', [\App\Http\Controllers\Api\AdministrasiController::class, 'buatTagihan']);

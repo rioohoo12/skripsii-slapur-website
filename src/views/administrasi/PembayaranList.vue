@@ -49,7 +49,7 @@
               <div class="font-medium text-dark">{{ item.tagihan?.student?.full_name || 'Tidak diketahui' }}</div>
               <div class="text-sm text-muted uppercase" style="font-size: 0.75rem;">{{ item.tagihan?.jenis || 'Pendaftaran' }}</div>
             </td>
-            <td class="font-medium text-dark">Rp {{ formatRupiah(item.tagihan?.nominal) }}</td>
+            <td class="font-medium text-dark">Rp {{ formatRupiah(item.nominal_display || item.nominal_bayar || item.tagihan?.nominal) }}</td>
             <td class="text-muted">{{ item.metode || 'MANUAL' }}</td>
             <td class="text-muted">{{ new Date(item.created_at).toLocaleDateString('id-ID') }}</td>
             <td>
@@ -284,5 +284,31 @@ onMounted(() => {
 }
 .action-btn:hover {
   background: #bfdbfe;
+}
+
+@media (max-width: 640px) {
+  .list-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .filter-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search-input,
+  .select-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .filter-btn {
+    width: 100%;
+  }
+  .data-table th, 
+  .data-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
 }
 </style>

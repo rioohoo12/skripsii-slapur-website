@@ -1,31 +1,56 @@
 <template>
-  <aside class="guru-sidebar">
-    <div class="sidebar-header">
-      <div class="logo-wrap">
-        <img src="/slapur-logo.png" alt="Logo SLAPUR" class="sidebar-logo" />
-        <span class="sidebar-title">SLAPUR</span>
+  <div>
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="mobileOpen" 
+      class="mobile-backdrop" 
+      @click="closeMobile"
+      aria-hidden="true"
+    ></div>
+
+    <aside class="guru-sidebar" :class="{ 'mobile-open': mobileOpen }">
+      <div class="sidebar-header">
+        <div class="logo-wrap">
+          <img src="/slapur-logo.png" alt="Logo SLAPUR" class="sidebar-logo" />
+          <span class="sidebar-title">SLAPUR</span>
+        </div>
+        <p class="sidebar-subtitle">Dashboard Guru</p>
+        <button class="mobile-close-btn" @click="closeMobile" aria-label="Tutup Menu">
+          &times;
+        </button>
       </div>
-      <p class="sidebar-subtitle">Dashboard Guru</p>
-    </div>
-    <nav class="sidebar-nav">
-      <router-link
-        v-for="item in menuItems"
-        :key="item.to"
-        :to="item.to"
-        class="nav-item"
-        :class="{ active: isActive(item) }"
-      >
-        <span class="nav-icon" v-html="item.icon"></span>
-        <span class="nav-label">{{ item.label }}</span>
-      </router-link>
-    </nav>
-  </aside>
+      <nav class="sidebar-nav">
+        <router-link
+          v-for="item in menuItems"
+          :key="item.to"
+          :to="item.to"
+          class="nav-item"
+          :class="{ active: isActive(item) }"
+          @click="closeMobile"
+        >
+          <span class="nav-icon" v-html="item.icon"></span>
+          <span class="nav-label">{{ item.label }}</span>
+        </router-link>
+      </nav>
+    </aside>
+  </div>
 </template>
 
 <script setup>
 import { useRoute } from 'vue-router';
 
+const props = defineProps({
+  mobileOpen: { type: Boolean, default: false }
+});
+
+const emit = defineEmits(['update:mobileOpen', 'close']);
+
 const route = useRoute();
+
+function closeMobile() {
+  emit('update:mobileOpen', false);
+  emit('close');
+}
 
 const iconGauge = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>';
 const iconClass = '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7h18"/><path d="M3 12h18"/><path d="M3 17h18"/></svg>';
@@ -150,10 +175,62 @@ function isActive(item) {
 .nav-label {
   flex: 1;
 }
-@media (max-width: 900px) {
+
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #94a3b8;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+.mobile-close-btn:hover {
+  color: #ffffff;
+}
+
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+}
+
+@media (max-width: 1024px) {
   .guru-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 275px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.35);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .guru-sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .sidebar-subtitle {
     width: 100%;
-    min-height: auto;
+    margin-top: 0.25rem;
+  }
+
+  .mobile-close-btn {
+    display: block;
   }
 }
 </style>

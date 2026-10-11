@@ -1,19 +1,19 @@
 <template>
-  <div class="dashboard-asrama">
-    <div class="welcome-card">
+  <div class="dashboard-asrama" :class="isPutri ? 'is-putri' : 'is-putra'">
+    <div class="welcome-card" :class="isPutri ? 'welcome-putri' : 'welcome-putra'">
       <div class="welcome-content">
-        <h1>Selamat Datang, Staff Asrama!</h1>
-        <p>Kelola data penghuni, kapasitas kamar, dan fasilitas asrama dari dashboard ini.</p>
+        <h1>Selamat Datang, Staff {{ label }}!</h1>
+        <p>Kelola data penghuni, kapasitas kamar, dan fasilitas {{ label.toLowerCase() }} dari dashboard ini.</p>
       </div>
-      <div class="welcome-img">🏰</div>
+      <div class="welcome-img">{{ isPutri ? '🌸' : '🏰' }}</div>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
-        <div class="stat-icon bg-purple">🛏️</div>
+        <div class="stat-icon" :class="isPutri ? 'bg-pink' : 'bg-purple'">🛏️</div>
         <div class="stat-info">
           <span class="stat-value">{{ loading ? '...' : stats.total_kamar }}</span>
-          <span class="stat-label">Total Kamar</span>
+          <span class="stat-label">Total Kamar {{ label }}</span>
         </div>
       </div>
       <div class="stat-card">
@@ -42,10 +42,10 @@
     <div class="content-cards">
       <div class="content-card">
         <h3>Aktivitas Terbaru</h3>
-        <p class="placeholder-text">Belum ada aktivitas terbaru hari ini.</p>
+        <p class="placeholder-text">Belum ada aktivitas terbaru hari ini di {{ label.toLowerCase() }}.</p>
       </div>
       <div class="content-card">
-        <h3>Kapasitas Gedung</h3>
+        <h3>Kapasitas Gedung {{ label }}</h3>
         <p v-if="loading" class="placeholder-text">Memuat data...</p>
         <ul v-else-if="stats.kapasitas_gedung.length > 0" class="building-list">
           <li v-for="(g, i) in stats.kapasitas_gedung" :key="i">
@@ -62,7 +62,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, watch } from 'vue';
+import { useAsramaType } from '@/composables/useAsramaType';
+
+const { type, isPutri, label, withType } = useAsramaType();
 
 const stats = ref({
   total_kamar: 0,
@@ -74,10 +77,11 @@ const stats = ref({
 
 const loading = ref(true);
 
-onMounted(async () => {
+async function loadStats() {
+  loading.value = true;
   try {
     const token = localStorage.getItem('auth_token');
-    const res = await fetch('/api/staff/asrama/dashboard', {
+    const res = await fetch(withType('/api/staff/asrama/dashboard'), {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Accept': 'application/json'
@@ -91,7 +95,10 @@ onMounted(async () => {
   } finally {
     loading.value = false;
   }
-});
+}
+
+watch(type, () => loadStats());
+onMounted(() => loadStats());
 </script>
 
 <style scoped>
@@ -102,13 +109,21 @@ onMounted(async () => {
 }
 
 .welcome-card {
-  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
   border-radius: 16px;
   padding: 2.5rem;
   color: white;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  box-shadow: 0 10px 25px rgba(15, 30, 60, 0.12);
+}
+
+.welcome-putra {
+  background: linear-gradient(135deg, #1e3a8a 0%, #0f1e3c 100%);
+}
+
+.welcome-putri {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
   box-shadow: 0 10px 25px rgba(109, 40, 217, 0.2);
 }
 
@@ -236,6 +251,25 @@ onMounted(async () => {
   }
   .content-cards {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .welcome-content h1 {
+    font-size: 1.35rem;
+  }
+  .welcome-content p {
+    font-size: 0.9rem;
+  }
+  .welcome-img {
+    font-size: 3rem;
+  }
+  .stats-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+  .stat-card {
+    padding: 1rem;
   }
 }
 </style>

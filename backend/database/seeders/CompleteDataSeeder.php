@@ -214,16 +214,32 @@ class CompleteDataSeeder extends Seeder
             );
         }
 
-        // Staff Asrama
+        // Staff Asrama Putra & Putri
         DB::table('users')->updateOrInsert(
-            ['email' => 'test.staff.asrama@sekolah.com'],
+            ['email' => 'asramaputra@gmail.com'],
             [
-                'name' => 'Staff Asrama',
-                'email' => 'asrama@gmail.com',
-                'password' => Hash::make('Slapur123'),
-                'role' => 'Staff Asrama',
-                'role_id' => $staffAsramaRole->id,
-                'jenis_kelamin' => 'L',
+                'name' => 'Staff Asrama Putra',
+                'email' => 'asramaputra@gmail.com',
+                'password' => Hash::make('Putra123'),
+                'role' => 'staff_asrama',
+                'role_id' => $staffAsramaRole->id ?? null,
+                'jenis_kelamin' => 'laki-laki',
+                'is_verified' => true,
+                'email_verified_at' => now(),
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        DB::table('users')->updateOrInsert(
+            ['email' => 'asramaputri@gmail.com'],
+            [
+                'name' => 'Staff Asrama Putri',
+                'email' => 'asramaputri@gmail.com',
+                'password' => Hash::make('Putri123'),
+                'role' => 'staff_asrama',
+                'role_id' => $staffAsramaRole->id ?? null,
+                'jenis_kelamin' => 'perempuan',
                 'is_verified' => true,
                 'email_verified_at' => now(),
                 'created_at' => now(),

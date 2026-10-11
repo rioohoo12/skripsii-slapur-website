@@ -17,21 +17,114 @@ export const useChatbotStore = defineStore('chatbot', {
     quickReplies: (state) => {
       const role = (state.userRole || 'umum').toLowerCase();
       switch (role) {
+        case 'staff_administrasi':
+        case 'administrasi':
+        case 'staff':
+          return [
+            'Panduan Menu Administrasi',
+            'Cari Info Siswa',
+            'Ringkasan Pendaftar & Siswa',
+            'Berkas Menunggu Verifikasi',
+            'Antrean Pembayaran Masuk'
+          ];
+        case 'staff_asrama_putra':
+        case 'asrama_putra':
+          return [
+            'Panduan Menu Asrama Putra',
+            'Total Murid Asrama Putra',
+            'Ketersediaan Kamar Putra',
+            'Antrean Persetujuan Kamar',
+            'Panduan Mutasi Kamar'
+          ];
+        case 'staff_asrama_putri':
+        case 'asrama_putri':
+          return [
+            'Panduan Menu Asrama Putri',
+            'Total Murid Asrama Putri',
+            'Ketersediaan Kamar Putri',
+            'Antrean Persetujuan Kamar',
+            'Panduan Mutasi Kamar'
+          ];
+        case 'staff_asrama':
+          return [
+            'Panduan Menu Asrama Putra',
+            'Total Murid di Asrama',
+            'Ketersediaan Kamar Asrama',
+            'Antrean Persetujuan Kamar',
+            'Panduan Mutasi Kamar'
+          ];
+        case 'staff_kafetaria':
+        case 'kafetaria':
+          return [
+            'Panduan Menu Kafetaria',
+            'Menu Makanan Hari Ini',
+            'Rekap Siswa Makan Hari Ini',
+            'Panduan Scan Kartu Makan',
+            'Input Menu Makanan Baru'
+          ];
+        case 'guru':
+        case 'teacher':
+          return [
+            'Jadwal Mengajar',
+            'Panduan Input Absensi',
+            'Panduan Input Nilai',
+            'Daftar Kelas'
+          ];
         case 'murid':
         case 'student':
         case 'siswa':
-          return ['Cara Gunakan Website', 'Panduan Pendaftaran', 'Tagihan Saya', 'Jadwal Pelajaran', 'Bantuan Staf'];
-        case 'guru':
-        case 'teacher':
-          return ['Jadwal Mengajar', 'Panduan Input Absensi', 'Panduan Input Nilai', 'Daftar Kelas'];
-        case 'staff':
-        case 'administrasi':
-          return ['Ringkasan Siswa', 'Status Pembayaran Siswa', 'Ketersediaan Kamar', 'Panduan Verifikasi'];
+          return [
+            'Panduan Menu Siswa',
+            'Tagihan & Status Bayar',
+            'Jadwal Pelajaran',
+            'Info Kamar Asrama',
+            'Bantuan Staf'
+          ];
         case 'admin':
-          return ['Panduan Kelola Role', 'Ringkasan Monitoring', 'FAQ Sekolah'];
+          return [
+            'Panduan Kelola Role',
+            'Ringkasan Monitoring',
+            'FAQ Sekolah'
+          ];
         case 'umum':
         default:
-          return ['Cara Gunakan Website', 'Info Pendaftaran', 'Biaya & SPP', 'Aturan Asrama', 'Bicara dg Staf'];
+          return [
+            'Cara Gunakan Website',
+            'Info Pendaftaran',
+            'Biaya & SPP',
+            'Aturan Asrama',
+            'Bicara dg Staf'
+          ];
+      }
+    },
+
+    welcomeMessage: (state) => {
+      const role = (state.userRole || 'umum').toLowerCase();
+      switch (role) {
+        case 'staff_administrasi':
+        case 'administrasi':
+        case 'staff':
+          return 'Halo! 👨‍💼 Saya Asisten Administrasi SLAPUR. Saya siap memandu fungsi setiap menu administrasi dan menyajikan informasi data siswa lengkap dari database sekolah. Ada yang ingin dicari atau ditanyakan?';
+        case 'staff_asrama_putra':
+        case 'asrama_putra':
+          return 'Halo! 🏢 Saya Asisten Asrama Putra SLAPUR. Saya siap memandu fungsi menu asrama putra, memberikan informasi total murid penghuni asrama putra, ketersediaan kamar Gedung A-C, dan persetujuan kamar.';
+        case 'staff_asrama_putri':
+        case 'asrama_putri':
+          return 'Halo! 🌸 Saya Asisten Asrama Putri SLAPUR. Saya siap memandu fungsi menu asrama putri, memberikan informasi total murid penghuni asrama putri, ketersediaan kamar Gedung D-F, dan persetujuan kamar.';
+        case 'staff_asrama':
+          return 'Halo! 🏰 Saya Asisten Asrama SLAPUR. Saya siap memandu fungsi menu asrama serta memberikan informasi total murid di asrama putra maupun asrama putri.';
+        case 'staff_kafetaria':
+        case 'kafetaria':
+          return 'Halo! 🍲 Saya Asisten Kafetaria SLAPUR. Saya siap memandu menu operasional kafetaria, jadwal menu makan hari ini, rekapitulasi siswa yang sudah makan, dan panduan scan kartu makan santri.';
+        case 'guru':
+        case 'teacher':
+          return 'Halo Bapak/Ibu Guru! 👨‍🏫 Saya Asisten Guru SLAPUR. Saya siap memandu jadwal mengajar, penginputan absensi kelas, dan pengisian nilai siswa.';
+        case 'murid':
+        case 'student':
+        case 'siswa':
+          return 'Halo! 👋 Saya Asisten Siswa SLAPUR. Saya siap membantu kamu memahami navigasi menu, info pendaftaran, jadwal pelajaran, kamar asrama, hingga status tagihan pembayaranmu.';
+        default:
+          return 'Halo! 👋 Saya Asisten SLAPUR. Saya siap membantu Anda memahami cara menggunakan website SLAPUR, navigasi menu, info pendaftaran, jadwal, hingga pembayaran SPP. Ada yang ingin kamu tanyakan?';
       }
     },
   },
@@ -56,7 +149,7 @@ export const useChatbotStore = defineStore('chatbot', {
         this.messages = [
           {
             role: 'assistant',
-            message: 'Halo! 👋 Saya Asisten SLAPUR. Saya siap membantu kamu memahami cara menggunakan website SLAPUR, navigasi menu, info pendaftaran, jadwal, hingga pembayaran SPP. Ada yang ingin kamu tanyakan?',
+            message: this.welcomeMessage,
           },
         ];
         return;
@@ -76,7 +169,7 @@ export const useChatbotStore = defineStore('chatbot', {
           this.messages = [
             {
               role: 'assistant',
-              message: 'Halo! 👋 Saya Asisten SLAPUR. Saya siap membantu kamu memahami cara menggunakan website SLAPUR, navigasi menu, info pendaftaran, jadwal, hingga pembayaran SPP. Ada yang ingin kamu tanyakan?',
+              message: this.welcomeMessage,
             },
           ];
         }
@@ -85,7 +178,7 @@ export const useChatbotStore = defineStore('chatbot', {
         this.messages = [
           {
             role: 'assistant',
-            message: 'Halo! 👋 Saya Asisten SLAPUR. Ada yang bisa saya bantu terkait penggunaan website SLAPUR?',
+            message: this.welcomeMessage,
           },
         ];
       } finally {

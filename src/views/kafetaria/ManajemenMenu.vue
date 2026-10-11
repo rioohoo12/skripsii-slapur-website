@@ -406,4 +406,41 @@ input:focus, select:focus, textarea:focus {
   border-radius: 8px;
   border: 1px solid #fecaca;
 }
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.menu-table th {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 1rem 0.85rem;
+  }
+  .page-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 1rem;
+    margin-bottom: 1.25rem;
+  }
+  .page-header .btn {
+    width: 100%;
+    text-align: center;
+  }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .content-card {
+    padding: 1rem;
+  }
+  .menu-table th, 
+  .menu-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

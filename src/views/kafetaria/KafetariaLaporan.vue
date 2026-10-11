@@ -215,4 +215,36 @@ input:focus { border-color: #f59e0b; }
 
 .text-center { text-align: center; }
 .text-muted { color: #94a3b8; }
+
+.table-responsive {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.report-table th {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .page-container {
+    padding: 1rem 0.85rem;
+  }
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.25rem;
+  }
+  .summary-item {
+    padding: 0.85rem;
+  }
+  .summary-item .value {
+    font-size: 1.5rem;
+  }
+  .report-table th, 
+  .report-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

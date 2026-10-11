@@ -299,10 +299,29 @@ async function scrollToBottom() {
   }
 }
 
-function initBotGreeting() {
+async function initBotGreeting() {
   const defaultName = authStore.user?.name || 'Calon Siswa';
   form.full_name = authStore.user?.name || '';
   form.gender = authStore.user?.jenis_kelamin || props.jenisKelamin;
+
+  messages.value = [];
+  loadingBot.value = true;
+  try {
+    // Generate a fresh session ID to ensure backend state (slots) is completely reset
+    const sessionId = 'reg_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+    localStorage.setItem('chat_session_id', sessionId);
+    
+    // Silently send "daftar" to init backend state to _awaiting = 'nama'
+    const res = await chatbotApi.sendMessage(sessionId, "daftar", "register");
+    if (res.session_id) {
+      localStorage.setItem('chat_session_id', res.session_id);
+    }
+    if (res.slots) {
+      updateFormFromSlots(res.slots);
+    }
+  } catch (err) {
+    console.error('Init chat error:', err);
+  }
 
   messages.value = [
     {
@@ -313,6 +332,7 @@ function initBotGreeting() {
 
   // Fast trigger helper options for gender or class if needed
   currentOptions.value = [];
+  loadingBot.value = false;
 }
 
 async function sendMessage() {
@@ -332,7 +352,7 @@ async function sendMessage() {
 
   try {
     const sessionId = localStorage.getItem('chat_session_id');
-    const res = await chatbotApi.sendMessage(sessionId, text);
+    const res = await chatbotApi.sendMessage(sessionId, text, 'register');
 
     if (res.session_id) {
       localStorage.setItem('chat_session_id', res.session_id);
@@ -411,8 +431,13 @@ async function handleSubmit() {
     const res = await pendaftaranApi.submitForm(form);
     successMsg.value = res.message || 'Pendaftaran Anda berhasil dikirim dan dicatat!';
     
+    if (authStore.user) {
+      authStore.user.jenis_kelamin = form.gender;
+      localStorage.setItem('user', JSON.stringify(authStore.user));
+    }
+    
     setTimeout(() => {
-      router.push(`/siswa/${props.jenisKelamin}/pendaftaran/status`);
+      router.push(`/siswa/${form.gender}/pendaftaran/status`);
     }, 1500);
 
   } catch (e) {
@@ -816,6 +841,17 @@ onMounted(() => {
 @media (max-width: 900px) {
   .chatbot-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .chat-card {
+    height: 520px;
+  }
+  .message-bubble {
+    max-width: 92%;
+    padding: 0.75rem 0.95rem;
+    font-size: 0.85rem;
   }
 }
 </style>

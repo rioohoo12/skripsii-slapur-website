@@ -1,35 +1,46 @@
 <template>
   <div class="layout">
+    <!-- Mobile Backdrop -->
+    <div 
+      v-if="mobileSidebarOpen" 
+      class="mobile-backdrop" 
+      @click="mobileSidebarOpen = false"
+      aria-hidden="true"
+    ></div>
+
     <!-- Sidebar -->
-    <aside class="sidebar" :class="{ 'collapsed': isCollapsed }">
+    <aside class="sidebar" :class="{ 'collapsed': isCollapsed, 'mobile-open': mobileSidebarOpen }">
       <div class="sidebar-header">
         <div class="logo">
           <span class="logo-icon">🍽️</span>
           <span class="logo-text" v-if="!isCollapsed">Kafetaria</span>
         </div>
-        <button class="toggle-btn" @click="isCollapsed = !isCollapsed">
+        <button class="toggle-btn desktop-only" @click="isCollapsed = !isCollapsed">
           <span v-if="isCollapsed">❯</span>
           <span v-else>❮</span>
+        </button>
+        <button class="mobile-close-btn" @click="mobileSidebarOpen = false" aria-label="Tutup Menu">
+          &times;
         </button>
       </div>
 
       <nav class="sidebar-nav">
-        <router-link to="/kafetaria/dashboard" class="nav-item">
+        <router-link to="/kafetaria/dashboard" class="nav-item" @click="mobileSidebarOpen = false">
           <span class="nav-icon">📊</span>
           <span class="nav-text" v-if="!isCollapsed">Dashboard</span>
         </router-link>
         
-        <router-link to="/kafetaria/menus" class="nav-item">
+        <router-link to="/kafetaria/menus" class="nav-item" @click="mobileSidebarOpen = false">
           <span class="nav-icon">🍲</span>
           <span class="nav-text" v-if="!isCollapsed">Manajemen Menu</span>
         </router-link>
         
-        <router-link to="/kafetaria/scanner" class="nav-item" active-class="active">
+        <router-link to="/kafetaria/scanner" class="nav-item" active-class="active" @click="mobileSidebarOpen = false">
           <span class="nav-icon">📝</span>
           <span class="nav-text" v-if="!isCollapsed">Input Presensi</span>
         </router-link>
 
-        <router-link to="/kafetaria/laporan" class="nav-item">
+        <router-link to="/kafetaria/laporan" class="nav-item" @click="mobileSidebarOpen = false">
           <span class="nav-icon">📈</span>
           <span class="nav-text" v-if="!isCollapsed">Laporan Makan</span>
         </router-link>
@@ -53,6 +64,22 @@
 
     <!-- Main Content -->
     <main class="main-content">
+      <!-- Mobile Topbar Header -->
+      <header class="kafetaria-mobile-topbar">
+        <div class="mobile-topbar-left">
+          <button class="hamburger-btn" @click="mobileSidebarOpen = true" aria-label="Buka Menu Kafetaria">
+            <span class="hamburger-icon">☰</span>
+          </button>
+          <div class="mobile-topbar-brand">
+            <span class="brand-icon">🍽️</span>
+            <span class="brand-text">Kafetaria</span>
+          </div>
+        </div>
+        <div class="mobile-user-badge">
+          <div class="user-avatar-small">{{ userInitial }}</div>
+        </div>
+      </header>
+
       <router-view></router-view>
     </main>
   </div>
@@ -66,11 +93,13 @@ import { useAuthStore } from '@/stores/auth';
 const router = useRouter();
 const authStore = useAuthStore();
 const isCollapsed = ref(false);
+const mobileSidebarOpen = ref(false);
 
 const userName = computed(() => authStore.user?.name || 'Staff');
 const userInitial = computed(() => userName.value.charAt(0).toUpperCase());
 
 async function handleLogout() {
+  mobileSidebarOpen.value = false;
   await authStore.logout();
   router.push('/kafetaria');
 }
@@ -244,5 +273,130 @@ async function handleLogout() {
   min-width: 0;
   height: 100vh;
   overflow-y: auto;
+}
+
+/* Mobile Drawer & Topbar Styles */
+.mobile-close-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #64748b;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem 0.5rem;
+}
+
+.mobile-close-btn:hover {
+  color: #ef4444;
+}
+
+.mobile-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(3px);
+  z-index: 90;
+}
+
+.kafetaria-mobile-topbar {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  position: sticky;
+  top: 0;
+  z-index: 40;
+}
+
+.mobile-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.hamburger-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  cursor: pointer;
+  color: #1e293b;
+  font-size: 1.2rem;
+  transition: all 0.2s;
+}
+
+.hamburger-btn:hover {
+  background: #f1f5f9;
+}
+
+.mobile-topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.brand-icon {
+  font-size: 1.3rem;
+}
+
+.brand-text {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.user-avatar-small {
+  width: 32px;
+  height: 32px;
+  background: #f59e0b;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 1024px) {
+  .desktop-only {
+    display: none;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 275px;
+    height: 100vh;
+    z-index: 100;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .sidebar.mobile-open {
+    transform: translateX(0);
+  }
+
+  .sidebar-header {
+    justify-content: space-between;
+  }
+
+  .mobile-close-btn {
+    display: block;
+  }
+
+  .kafetaria-mobile-topbar {
+    display: flex;
+  }
 }
 </style>

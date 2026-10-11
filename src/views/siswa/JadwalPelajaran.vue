@@ -168,4 +168,14 @@ const schedule = ref({
   content: '😴';
   font-size: 2rem;
 }
+
+@media (max-width: 640px) {
+  .schedule-grid {
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+  }
+  .day-content {
+    padding: 0.85rem;
+  }
+}
 </style>

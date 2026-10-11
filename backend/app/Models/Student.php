@@ -92,6 +92,21 @@ class Student extends Model
         return $this->hasMany(StudentClass::class, 'student_id');
     }
 
+    public function dokumenSiswa(): HasMany
+    {
+        return $this->hasMany(DokumenSiswa::class, 'siswa_id');
+    }
+
+    public function tagihans(): HasMany
+    {
+        return $this->hasMany(Tagihan::class, 'siswa_id');
+    }
+
+    public function roomSelection(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(PendaftaranRoomSelection::class, 'user_id', 'user_id');
+    }
+
     /**
      * Check if student has completed registration steps
      */

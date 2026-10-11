@@ -31,12 +31,13 @@ async function request(url, options = {}) {
 
 export const chatbotApi = {
   // Main Endpoint Sanctum Architecture
-  async sendMessage(sessionId, message) {
+  async sendMessage(sessionId, message, contextMode = undefined) {
     return request('/chatbot/message', {
       method: 'POST',
       body: JSON.stringify({
         session_id: sessionId || undefined,
         message,
+        context_mode: contextMode || undefined
       }),
     });
   },

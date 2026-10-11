@@ -260,4 +260,29 @@ onMounted(() => {
 .action-btn:hover {
   background: #bfdbfe;
 }
+
+@media (max-width: 640px) {
+  .list-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+  .filter-group {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .filter-input {
+    width: 100%;
+    min-width: 0;
+  }
+  .filter-btn {
+    width: 100%;
+  }
+  .data-table th, 
+  .data-table td {
+    padding: 0.75rem 0.85rem;
+    font-size: 0.85rem;
+  }
+}
 </style>

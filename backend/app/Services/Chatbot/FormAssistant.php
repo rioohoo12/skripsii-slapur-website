@@ -22,19 +22,19 @@ class FormAssistant
 {
     /** Urutan pertanyaan = urutan kolom formulir. */
     protected const SLOTS = [
-        'nama'           => 'Siapa nama lengkap calon siswa? (sesuai akte kelahiran)',
-        'jenis_kelamin'  => 'Apa jenis kelamin calon siswa? (Laki-laki / Perempuan)',
-        'tempat_lahir'   => 'Di kota mana calon siswa lahir?',
-        'tanggal_lahir'  => 'Kapan tanggal lahirnya? (contoh: 12-08-2008 atau 12 Agustus 2008)',
-        'agama'          => 'Apa agama calon siswa?',
-        'alamat'         => 'Apa alamat lengkap tempat tinggal? (jalan, RT/RW, desa/kelurahan)',
+        'nama'           => 'Siapa nama lengkap Anda? (sesuai akte kelahiran)',
+        'jenis_kelamin'  => 'Apa jenis kelamin Anda? (Laki-laki / Perempuan)',
+        'tempat_lahir'   => 'Di kota mana Anda lahir?',
+        'tanggal_lahir'  => 'Kapan tanggal lahir Anda? (contoh: 12-08-2008 atau 12 Agustus 2008)',
+        'agama'          => 'Apa agama Anda?',
+        'alamat'         => 'Apa alamat lengkap tempat tinggal Anda? (jalan, RT/RW, desa/kelurahan)',
         'kelas'          => 'Mendaftar ke kelas berapa? (7, 8, 9 untuk SMP atau 10, 11, 12 untuk SMA)',
-        'asal_sekolah'   => 'Dari sekolah mana asalnya? (ketik "-" jika belum ada)',
-        'nama_ayah'      => 'Siapa nama ayah / wali calon siswa?',
-        'pekerjaan_ayah' => 'Apa pekerjaan ayah / wali?',
-        'nama_ibu'       => 'Siapa nama ibu calon siswa?',
-        'pekerjaan_ibu'  => 'Apa pekerjaan ibu?',
-        'telepon'        => 'Berapa nomor HP/WhatsApp orang tua / wali yang aktif? (awalan 08 atau 62)',
+        'asal_sekolah'   => 'Dari sekolah mana asal Anda? (ketik "-" jika belum ada)',
+        'nama_ayah'      => 'Siapa nama ayah / wali Anda?',
+        'pekerjaan_ayah' => 'Apa pekerjaan ayah / wali Anda?',
+        'nama_ibu'       => 'Siapa nama ibu Anda?',
+        'pekerjaan_ibu'  => 'Apa pekerjaan ibu Anda?',
+        'telepon'        => 'Berapa nomor HP/WhatsApp orang tua / wali Anda yang aktif? (awalan 08 atau 62)',
     ];
 
     protected const LABELS = [

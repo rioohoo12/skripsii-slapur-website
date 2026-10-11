@@ -38,6 +38,7 @@
           >
             <span class="nav-icon">{{ item.icon }}</span>
             <span class="nav-label">{{ item.label }}</span>
+            <span v-if="item.badge" class="nav-badge" :class="item.badgeClass">{{ item.badge }}</span>
           </router-link>
           
           <div v-else class="nav-item locked" @click="showLockedAlert">
@@ -58,7 +59,7 @@
 </template>
 
 <script setup>
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { usePendaftaranStore } from '@/stores/pendaftaran';
@@ -73,23 +74,47 @@ const router = useRouter();
 const authStore = useAuthStore();
 const pendaftaranStore = usePendaftaranStore();
 
+onMounted(() => {
+  pendaftaranStore.fetchStatus();
+});
+
 const jenisKelamin = computed(() => {
   return authStore.user?.jenis_kelamin === 'perempuan' ? 'perempuan' : 'laki-laki';
+});
+
+const tagihanBadge = computed(() => {
+  const summary = pendaftaranStore.tagihanSummary;
+  if (!summary) return null;
+  if (summary.status_keseluruhan === 'lunas') {
+    return { text: 'Lunas', class: 'badge-lunas' };
+  } else if (summary.status_keseluruhan === 'menunggu') {
+    return { text: 'Menunggu', class: 'badge-menunggu' };
+  } else {
+    return { text: 'Belum Lunas', class: 'badge-belum' };
+  }
 });
 
 const menuItems = computed(() => {
   const isComplete = pendaftaranStore.isComplete;
   return [
     { path: `/siswa/${jenisKelamin.value}/dashboard`, label: 'Beranda', icon: '🏠', exact: true, locked: false },
+    { path: `/siswa/${jenisKelamin.value}/dokumen`, label: 'Dokumen', icon: '📁', locked: false },
+    { path: `/siswa/${jenisKelamin.value}/pendaftaran/status`, label: 'Pendaftaran', icon: '📋', locked: false },
     { path: `/siswa/${jenisKelamin.value}/jadwal`, label: 'Jadwal Pelajaran', icon: '📅', locked: !isComplete },
     { path: `/siswa/${jenisKelamin.value}/dining`, label: 'Dining', icon: '🍽️', locked: !isComplete },
     { path: `/siswa/${jenisKelamin.value}/asrama`, label: 'Asrama', icon: '🏰', locked: !isComplete },
-    { path: `/siswa/${jenisKelamin.value}/pendaftaran/status`, label: 'Pendaftaran', icon: '📋', locked: false },
     { path: `/siswa/${jenisKelamin.value}/grade`, label: 'Nilai', icon: '📊', locked: !isComplete },
     { path: `/siswa/${jenisKelamin.value}/absensi`, label: 'Presensi', icon: '✅', locked: false },
     { path: `/siswa/${jenisKelamin.value}/materi`, label: 'Materi', icon: '📚', locked: false },
     { path: `/siswa/${jenisKelamin.value}/tugas`, label: 'Tugas', icon: '📝', locked: false },
-    { path: `/siswa/${jenisKelamin.value}/keuangan`, label: 'Tagihan', icon: '💰', locked: !isComplete },
+    { 
+      path: `/siswa/${jenisKelamin.value}/tagihan`, 
+      label: 'Tagihan', 
+      icon: '💳', 
+      locked: false,
+      badge: tagihanBadge.value?.text,
+      badgeClass: tagihanBadge.value?.class
+    },
     { path: `/siswa/${jenisKelamin.value}/biodata`, label: 'Profil', icon: '👤', locked: false },
   ];
 });
@@ -223,6 +248,35 @@ async function handleLogout() {
   background-color: #3b82f6;
   color: #ffffff;
   box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.nav-badge {
+  margin-left: auto;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.5rem;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-lunas {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(52, 211, 153, 0.4);
+}
+
+.badge-menunggu {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid rgba(251, 191, 36, 0.4);
+}
+
+.badge-belum {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.4);
 }
 
 .nav-icon {
