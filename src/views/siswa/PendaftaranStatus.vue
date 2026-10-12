@@ -244,10 +244,6 @@ function handleStepClick(step) {
     lockedAlert.value = `Langkah ${step.index} (${step.judulFull}) masih terkunci. Anda harus meverifikasi dan menyelesaikan Langkah ${prevIndex} (${prevStep?.judulFull}) terlebih dahulu.`;
     return;
   }
-  if (step.index === 0 && step.selesai) {
-    lockedAlert.value = `Anda sudah mengisi dan menyelesaikan ${step.judulFull}. Data tidak dapat diubah lagi.`;
-    return;
-  }
   lockedAlert.value = null;
   router.push(`/siswa/${jk.value}/${step.path}`);
 }

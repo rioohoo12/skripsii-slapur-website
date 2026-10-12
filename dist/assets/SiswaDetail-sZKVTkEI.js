@@ -1,1 +1,0 @@
-import{_ as s,c as t,b as e,a as n}from"./index-B9IawxrP.js";const o={},l={class:"p-6"};function c(r,a){return n(),t("div",l,[...a[0]||(a[0]=[e("h2",{class:"text-2xl font-bold"},"Halaman SiswaDetail.vue",-1),e("p",null,"Sedang dalam pengembangan.",-1)])])}const i=s(o,[["render",c]]);export{i as default};

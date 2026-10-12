@@ -37,17 +37,15 @@ class DiningController extends Controller
 
         $student = Student::where('user_id', $user->id)->first();
 
-        // Jika murid belum punya record Student, buatkan record baru otomatis
+        // Jika murid belum punya record Student, buatkan record baru otomatis dengan status pending
         if (!$student) {
-            $count = Student::count() + 1;
-            $paddedNum = str_pad((string) $count, 4, '0', STR_PAD_LEFT);
             $student = Student::create([
                 'user_id' => $user->id,
                 'full_name' => $user->name,
                 'gender' => $user->jenis_kelamin === 'perempuan' ? 'P' : 'L',
-                'nomor_pendaftaran' => 'REG-' . date('Ym') . '-' . $paddedNum,
-                'dining_number' => $paddedNum,
-                'status_pendaftaran' => 'terdaftar',
+                'nomor_pendaftaran' => null,
+                'dining_number' => null,
+                'status_pendaftaran' => 'pending',
             ]);
         }
 

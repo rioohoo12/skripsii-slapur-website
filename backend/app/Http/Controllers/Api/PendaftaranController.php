@@ -47,8 +47,11 @@ class PendaftaranController extends Controller
         $documentsCount = $docs->filter(fn($d) => in_array($d->status, ['disetujui', 'terverifikasi', 'verified'], true))->count();
 
         // Evaluasi penyelesaian berurutan Langkah 0 s/d Langkah 5
-        // Siswa yang sudah terdaftar tidak boleh disuruh daftar ulang
-        $step0_done = (bool) ($profile && $profile->kelas_yang_didaftar) || ($student && $student->status_pendaftaran === 'terdaftar');
+        // Langkah 0 dianggap selesai HANYA JIKA siswa benar-benar sudah mengisi formulir permohonan pendaftaran
+        // (PendaftaranProfile dengan kelas_yang_didaftar) ATAU data siswa sudah terisi lengkap dari pendaftaran sebelumnya
+        $hasFilledProfile = (bool) ($profile && !empty($profile->kelas_yang_didaftar));
+        $hasCompleteStudentData = (bool) ($student && !empty($student->nomor_pendaftaran) && !empty($student->tempat_lahir) && !empty($student->nama_ayah) && $student->status_pendaftaran === 'terdaftar');
+        $step0_done = $hasFilledProfile || $hasCompleteStudentData;
         $step1_done = $step0_done && (($payment && ($payment->status === 'terverifikasi' || $payment->nominal_dibayar >= $payment->nominal_60_percent)) || ($student && $student->has_paid_registration));
         $step2_done = $step1_done && (($roomSelection && in_array($roomSelection->status, ['approved', 'disetujui'], true)) || ($student && ($student->has_chosen_room || $student->assigned_room_id)));
         $step3_done = $step2_done; // Administrasi
